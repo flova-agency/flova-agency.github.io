@@ -410,11 +410,11 @@ body.ed .edbar{display:flex}
 <div class="modal" id="mLogin"><div class="mbox">
   <button class="x" type="button" data-close>Fermer</button>
   <h3>Modifier le site</h3>
-  <p id="lgInfo">Espace réservé. Entrez votre adresse e-mail autorisée : vous recevrez un lien de connexion.</p>
+  <p id="lgInfo">Espace réservé. Entrez votre adresse e-mail autorisée : vous recevrez un mail avec un bouton et un code.</p>
   <div class="f"><label for="lgMail">Adresse e-mail</label><input id="lgMail" type="email" autocomplete="email"></div>
   <button class="btn" type="button" id="lgSend">Recevoir mon accès</button>
-  <div id="lgStep2" style="display:none;gap:10px">
-    <div class="f"><label for="lgCode">Code reçu par e-mail</label><input id="lgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div>
+  <div id="lgStep2" style="display:grid;gap:10px">
+    <div class="f"><label for="lgCode">Code à 8 chiffres reçu par e-mail</label><input id="lgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div>
     <button class="btn" type="button" id="lgVerify">Valider le code</button>
   </div>
   <p class="mmsg" id="lgMsg" role="status"></p>
@@ -653,31 +653,37 @@ function shrink(file, max) {
 }
 
 /* ---------- connexion ---------- */
+const LINK_ERR = /error_code=|error=access_denied/.test(LINK0) ? decodeURIComponent((LINK0.match(/error_description=([^&]+)/) || [,''])[1]).replace(/\+/g, ' ') : '';
 let JUST_LOGGED = /access_token=|type=(magiclink|signup|email)/.test(LINK0) || /[?&]code=/.test(LINK0);
 const msg = (t, bad) => { $('lgMsg').textContent = t; $('lgMsg').style.color = bad ? '#c0262d' : '#1b7a43'; };
-function openLogin() { if (user) return enterEd(); $('mLogin').classList.add('on'); $('lgMail').focus(); }
+function openLogin() { if (user) return enterEd(); try { const m = localStorage.getItem('flova-mail'); if (m && !$('lgMail').value) $('lgMail').value = m; } catch (x) {} $('mLogin').classList.add('on'); ($('lgMail').value ? $('lgCode') : $('lgMail')).focus(); }
 $('openEd').addEventListener('click', openLogin);
 const EDITABLE_HOST = location.protocol === 'file:' || /(^|\.)github\.io$/.test(location.hostname) || /flova/.test(location.hostname);
 $('openEd').hidden = true;
 if ((location.hash === '#modifier' || /[?&]modifier\b/.test(location.search)) && !/access_token=/.test(LINK0)) setTimeout(() => { if (!user) openLogin(); }, 1200);
+if (LINK_ERR) setTimeout(() => { if (!user) { openLogin(); msg('Ce bouton de connexion a expiré ou a déjà servi. Tapez le code du mail le plus récent, ou demandez un nouvel accès.', true); } history.replaceState(null, '', location.pathname + '#modifier'); }, 1300);
 window.addEventListener('hashchange', () => { if (location.hash === '#modifier') openLogin(); });
 $('lgSend').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(em)) return msg('Adresse e-mail non valide.', true);
   if (!sb) return msg('Connexion impossible pour le moment. Réessayez dans un instant.', true);
+  try { localStorage.setItem('flova-mail', em); } catch (x) {}
   $('lgSend').disabled = true; msg('Envoi en cours…');
   const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname + '?modifier' } });
   $('lgSend').disabled = false;
   if (error) return msg(error.status === 429 ? 'Trop de demandes. Attendez une minute puis réessayez.' : 'Envoi impossible : ' + error.message, true);
   $('lgStep2').style.display = 'grid';
-  msg('E-mail envoyé. Cliquez sur le lien reçu, ou tapez ici le code qu’il contient. Pensez à regarder dans les courriers indésirables.');
+  msg('E-mail envoyé. Touchez le bouton du mail le plus récent, ou tapez ici son code. Pensez aux courriers indésirables.'); $('lgCode').focus();
 });
 $('lgVerify').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase(), code = $('lgCode').value.replace(/\D/g, '');
-  if (code.length < 6) return msg('Le code contient au moins 6 chiffres.', true);
+  if (!/^\S+@\S+\.\S+$/.test(em)) return msg('Tapez d’abord votre adresse e-mail.', true);
+  if (code.length < 6) return msg('Le code contient 8 chiffres.', true);
+  $('lgVerify').disabled = true; msg('Vérification…');
   JUST_LOGGED = true;
   const { error } = await sb.auth.verifyOtp({ email: em, token: code, type: 'email' });
-  if (error) return msg('Code incorrect ou expiré. Demandez un nouvel accès.', true);
+  $('lgVerify').disabled = false;
+  if (error) { JUST_LOGGED = false; return msg(/expired|invalid/i.test(error.message) ? 'Ce code a expiré ou a déjà servi. Utilisez le code du mail le plus récent, ou demandez un nouvel accès.' : 'Connexion impossible : ' + error.message, true); }
 });
 async function onSession(s, ev) {
   user = s?.user || null;

@@ -38,6 +38,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 .qr button{font:500 13.5px Inter;background:#fff;color:#008069;border:1px solid #c7e8df;border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
 .typing{align-self:flex-start;background:#fff;border-radius:9px;padding:10px 14px;display:flex;gap:4px}
 .typing i{width:7px;height:7px;border-radius:50%;background:#8696a0;animation:bl 1.2s infinite}
+.typing span{font-size:13px;color:#667781;margin-left:6px;align-self:center}
 .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 @keyframes bl{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
 .chips{display:flex;gap:7px;overflow-x:auto;padding:8px 10px 2px;scrollbar-width:none}
@@ -97,6 +98,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <div class="chips" id="chips">
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
+      <button type="button">💡 Donne-moi 3 idées pour mon site</button>
+      <button type="button">🌍 Traduis tout le site en anglais</button>
       <button type="button">Ajoute un client : Boulangerie Saïd</button>
       <button type="button">Masque la section Offres</button>
       <button type="button">Mets le Contact juste après les Travaux</button>
@@ -151,11 +154,15 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     const d = document.createElement('div'); d.className = 'b ' + side; d.innerHTML = html + `<span class="t">${now()}</span>`;
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d;
   }
+  let stT = null;
+  const STEPS = ['je lis ton site…', 'je prépare la modification…', 'j’écris les textes…', 'je vérifie chaque détail…', 'presque fini…'];
   function typing(on) {
     let t = msgs.querySelector('.typing');
-    if (on && !t) { t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i>'; msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight; }
+    if (on && !t) { t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i><span></span>'; msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight; }
     if (!on && t) t.remove();
-    $('st').textContent = on ? 'en train d’écrire…' : 'en ligne';
+    clearInterval(stT);
+    if (on) { let k = 0; const show = () => { const m = STEPS[Math.min(k++, STEPS.length - 1)]; $('st').textContent = m; const sp = msgs.querySelector('.typing span'); if (sp) sp.textContent = m; }; show(); stT = setInterval(show, 3200); }
+    else $('st').textContent = 'en ligne';
   }
   const post = m => ifr.contentWindow.postMessage(m.site ? { ...m, site: withPhotos(m.site) } : m, location.origin);
   window.addEventListener('message', e => {
@@ -180,11 +187,22 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       typing(false);
       if (!r.ok || j.error) { bubble(esc(j.error || 'Petit souci de connexion. Réessaie dans un instant.'), 'in'); }
       else if (j.count > 0 && j.site) {
-        hist.push(cur); cur = j.site; post({ type: 'apercu-site', site: cur });
-        const b = bubble(`<span class="ok">✓ C’est en ligne.</span>\n${esc(j.resume)}\n<a data-undo>↶ Annuler</a>`, 'in');
+        const avant = cur; hist.push(cur); cur = j.site; post({ type: 'apercu-site', site: cur });
+        const apres = cur;
+        const b = bubble(`<span class="ok">✓ C’est en ligne.</span>\n${esc(j.resume)}\n<a data-ba>👁 Voir avant</a>   <a data-undo>↶ Annuler</a>`, 'in');
         b.querySelector('[data-undo]').addEventListener('click', undo);
+        let vue = 'apres';
+        b.querySelector('[data-ba]').addEventListener('click', e => {
+          if (cur !== apres) { bubble('Cette version a déjà été remplacée par une plus récente.', 'in'); return; }
+          vue = vue === 'apres' ? 'avant' : 'apres';
+          post({ type: 'apercu-site', site: vue === 'avant' ? avant : apres });
+          e.target.textContent = vue === 'avant' ? '👁 Voir après' : '👁 Voir avant';
+          if (vue === 'avant') setTimeout(() => { if (vue === 'avant') { vue = 'apres'; post({ type: 'apercu-site', site: apres }); e.target.textContent = '👁 Voir avant'; } }, 4000);
+        });
       } else if (j.type === 'hors_champ') {
         bubble(`${esc(j.resume || 'Ça, je ne peux pas le faire moi-même.')}\n\n<b>Dans la vraie version</b>, un bouton envoie ta demande à l’équipe Uxlab : elle la fabrique, la teste et te prévient quand c’est en ligne.`, 'in');
+      } else if (j.type === 'conseil') {
+        bubble('💡 ' + esc(j.resume || 'Voici mes idées.') + '\n\nTouche une idée pour l’appliquer :', 'in');
       } else {
         bubble(esc(j.resume || 'Dis-m’en un peu plus ?'), 'in');
       }

@@ -48,6 +48,8 @@ Règles :
 3. Jamais de prix sur le site.
 4. Images : réutilise uniquement des adresses déjà présentes dans le contenu ou données dans la demande (photos envoyées par le propriétaire), jamais l'image d'un autre client. Quand la demande fournit une photo sans préciser où la mettre, remplace l'image la plus logique et dis laquelle dans "resume". Pour un nouveau client ou une nouvelle étude de cas sans logo, mets "img": "" (ou "logo": "") : ses initiales s'affichent ; précise dans "resume" qu'on peut ajouter le logo avec le bouton « Changer l'image ». Pour une nouvelle photo sans image fournie, reprends une image déjà présente du même type.
 5. Écris en français soigné, dans le style du site : phrases courtes, chiffres au format « 1,2 M », « 27,8 K », « +430 ».
+7. Conseil, avis, idées, audit (« qu'est-ce que tu en penses », « comment améliorer mon site », « donne-moi des idées ») : ne change rien, "type": "conseil". Dans "resume", donne 3 améliorations précises pour CE site, chacune en une phrase avec le pourquoi (jamais de généralités). Mets ces 3 améliorations dans "choix", écrites comme des demandes prêtes à appliquer.
+8. Traduction (« traduis le site en anglais / arabe / turc / néerlandais… ») : réécris TOUS les textes ("t" et les textes des listes, liens SEO compris) dans la langue demandée, avec le même ton. Garde les noms propres, les marques, les chiffres et les adresses d'images. C'est une demande normale, "type": "fait".
 6. Si la demande touche au design (couleurs, polices, mise en page) ou à quelque chose que ce contenu ne permet vraiment pas (nouvelle page, nouvelle fonction, vidéo hébergée), ne change rien et mets "type": "hors_champ". Dans "resume", dis simplement que tu peux changer les textes, les listes, les sections (afficher, masquer, déplacer) et les liens, mais pas le design. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
@@ -59,7 +61,7 @@ Réponds uniquement avec un objet JSON de cette forme :
    "links": {seulement les liens modifiés}
  },
  "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
- "type": "fait" | "question" | "hors_champ",
+ "type": "fait" | "question" | "conseil" | "hors_champ",
  "choix": ["jusqu'à 3 demandes ou réponses prêtes à toucher, facultatif"]}
 Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
 
@@ -132,7 +134,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: Deno.env.get("FLOVA_MODEL") || "deepseek-flash",
         temperature: 0.2,
-        max_tokens: 12000,
+        max_tokens: 16000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
@@ -152,7 +154,7 @@ Deno.serve(async (req) => {
     const parsed = JSON.parse(m[0]);
     const { site: next, count } = clean(parsed.changes || {}, site);
     await logUse(count > 0);
-    const type = count ? "fait" : (["question", "hors_champ"].includes(parsed.type) ? parsed.type : "question");
+    const type = count ? "fait" : (["question", "hors_champ", "conseil"].includes(parsed.type) ? parsed.type : "question");
     const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, 3).map((c: string) => c.trim().slice(0, 80));
     return json({ site: next, count, type, choix, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 500) });
   } catch (e) {

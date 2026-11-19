@@ -614,6 +614,7 @@ function render() {
   $('L_addons').innerHTML = L.addons.map((x,i)=>`<div class="it">${P(`addons.${i}.t`,x.t,'h3')}${P(`addons.${i}.d`,x.d,'p','m')}${TB('addons',i)}</div>`).join('') + (ED?`<div>${ADD('addons')}${ADD('plans').replace('+ Ajouter','+ Ajouter une offre')}</div>`:'');
   $('pack').innerHTML = ['Je ne sais pas encore', ...L.plans.map(p=>p.t), ...L.addons.map(a=>a.t)].map(o=>`<option>${esc(o)}</option>`).join('');
   document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.dataset.k0 == null) el.dataset.k0 = el.textContent; el.textContent = fr(C.t[k] != null ? C.t[k] : el.dataset.k0); });
+  { const a = document.querySelector('[data-k=h1a]'), b = document.querySelector('[data-k=h1b]'); if (a && b && !ED && a.textContent && !/[\s'’]$/.test(a.textContent) && !/^\s/.test(b.textContent)) a.textContent += ' '; }
   document.title = C.links.seoTitle || TITLE0;
   const md = document.querySelector('meta[name=description]'); if (md) md.content = C.links.seoDesc || META_DESC;
   const em = C.links.email || DEF.links.email;

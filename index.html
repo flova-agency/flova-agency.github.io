@@ -302,7 +302,7 @@ body.ed .edbar{display:flex}
 
 <nav><div class="wrap">
   <a class="logo" href="#top"><i></i><span data-k="brand">FLOVA</span></a>
-  <div class="links"><a href="#expertises">Expertises</a><a href="#travaux">Travaux</a><a href="#methode">Méthode</a><a href="#fondateur">Fondateur</a><a href="#offres">Offres</a></div>
+  <div class="links"><a href="#expertises"><span data-k="nav_l1">Expertises</span></a><a href="#travaux"><span data-k="nav_l2">Travaux</span></a><a href="#methode"><span data-k="nav_l3">Méthode</span></a><a href="#fondateur"><span data-k="nav_l4">Fondateur</span></a><a href="#offres"><span data-k="nav_l5">Offres</span></a></div>
   <span class="city" data-k="nav_city">Bruxelles · Paris</span>
   <a class="btn blue" href="#contact"><span data-k="nav_cta">Démarrer un projet</span></a>
 </div></nav>
@@ -397,24 +397,24 @@ body.ed .edbar{display:flex}
     <p class="lead" style="margin-top:18px;overflow-wrap:anywhere"><span data-k="c_mail_l">Ou écrivez-nous :</span> <a class="mailto" style="color:#fff">Pro.fukay1070@hotmail.com</a></p>
   </div>
   <form id="f" novalidate>
-    <div class="f"><label for="nom">Nom et prénom</label><input id="nom" autocomplete="name"></div>
-    <div class="f"><label for="ent">Entreprise ou marque</label><input id="ent" autocomplete="organization"></div>
+    <div class="f"><label for="nom"><span data-k="f_nom">Nom et prénom</span></label><input id="nom" autocomplete="name"></div>
+    <div class="f"><label for="ent"><span data-k="f_ent">Entreprise ou marque</span></label><input id="ent" autocomplete="organization"></div>
     <div class="f"><label for="mail">E-mail</label><input id="mail" type="email" autocomplete="email"></div>
-    <div class="f"><label for="tel">Téléphone</label><input id="tel" type="tel" autocomplete="tel"></div>
+    <div class="f"><label for="tel"><span data-k="f_tel">Téléphone</span></label><input id="tel" type="tel" autocomplete="tel"></div>
     <div class="f"><label for="act">Secteur</label><select id="act"><option>Mode et retail</option><option>Restauration</option><option>Marque</option><option>Rue commerçante ou association</option><option>Autre</option></select></div>
-    <div class="f"><label for="pack">Offre</label><select id="pack"></select></div>
-    <div class="f w"><label for="msg">Votre projet (facultatif)</label><textarea id="msg" placeholder="Ce que vous vendez, vos objectifs, vos dates importantes"></textarea></div>
-    <button class="btn" type="submit">Recevoir une proposition</button>
+    <div class="f"><label for="pack"><span data-k="f_pack">Offre</span></label><select id="pack"></select></div>
+    <div class="f w"><label for="msg"><span data-k="f_msg">Votre projet (facultatif)</span></label><textarea id="msg" placeholder="Ce que vous vendez, vos objectifs, vos dates importantes"></textarea></div>
+    <button class="btn" type="submit"><span data-k="f_send">Recevoir une proposition</span></button>
     <p class="err" id="err" role="alert"></p>
-    <div class="done" id="done"><b>Votre demande est prête.</b> <span id="how"></span><pre id="txt"></pre><button class="btn" type="button" id="copy">Copier la demande</button></div>
+    <div class="done" id="done"><b data-k="f_done">Votre demande est prête.</b> <span id="how"></span><pre id="txt"></pre><button class="btn" type="button" id="copy"><span data-k="f_copy">Copier la demande</span></button></div>
   </form>
 </div></section>
 
 <footer>
   <div class="cols">
     <div><a class="logo" href="#top" style="color:#fff;padding:0;margin-bottom:14px"><i></i>FLOVA</a><p class="m" style="max-width:36ch" data-k="ft_about">Stratégie, contenu et diffusion pour les marques, les commerces et les territoires.</p></div>
-    <div><h4>Agence</h4><a href="#expertises">Expertises</a><a href="#travaux">Travaux</a><a href="#methode">Méthode</a></div>
-    <div><h4>Travailler ensemble</h4><a href="#offres">Offres</a><a href="#contact">Démarrer un projet</a><a href="#fondateur">Le fondateur</a></div>
+    <div><h4 data-k="ft_h1">Agence</h4><a href="#expertises"><span data-k="nav_l1">Expertises</span></a><a href="#travaux"><span data-k="nav_l2">Travaux</span></a><a href="#methode"><span data-k="nav_l3">Méthode</span></a></div>
+    <div><h4 data-k="ft_h2">Travailler ensemble</h4><a href="#offres"><span data-k="nav_l5">Offres</span></a><a href="#contact"><span data-k="nav_cta">Démarrer un projet</span></a><a href="#fondateur"><span data-k="ft_l3">Le fondateur</span></a></div>
     <div><h4>Suivre</h4><a id="a_tt2" href="https://www.tiktok.com/@fukay1070">TikTok</a><a id="a_ig2" href="https://www.instagram.com/fukay1070/">Instagram</a><a class="mailto" style="overflow-wrap:anywhere"></a><span class="m" style="display:block;padding:3px 0" data-k="ft_city">Bruxelles · Paris</span></div>
   </div>
   <div class="mark d" aria-hidden="true">FLOVA</div>
@@ -610,7 +610,7 @@ function render() {
   $('L_cases').innerHTML = h + ADD('cases');
   $('L_steps').innerHTML = L.steps.map((x,i)=>`<div class="step it"><div class="d">${i+1}</div>${P(`steps.${i}.t`,x.t,'h3')}${P(`steps.${i}.d`,x.d,'p','m')}${TB('steps',i)}</div>`).join('') + (ED?`<div>${ADD('steps')}</div>`:'');
   $('L_sect').innerHTML = L.sect.map((x,i)=>`<div class="it">${P(`sect.${i}.t`,x.t,'h3')}${P(`sect.${i}.d`,x.d,'p','m')}${TB('sect',i)}</div>`).join('') + (ED?`<div>${ADD('sect')}</div>`:'');
-  $('L_plans').innerHTML = L.plans.map((x,i)=>`<div class="plan it${x.tag?' rec':''}">${(x.tag||ED)?`<span class="tag">${P(`plans.${i}.tag`,x.tag||'')}</span>`:''}${P(`plans.${i}.t`,x.t,'h3')}${P(`plans.${i}.v`,x.v,'div','d')}${P(`plans.${i}.u`,x.u,'span','m')}<ul>${x.items.map((it,k)=>`<li>${P(`plans.${i}.items.${k}`,it)}${ED?` <button type="button" class="edlink" data-act="idel" data-i="${i}" data-k2="${k}">retirer</button>`:''}</li>`).join('')}</ul>${ED?`<button type="button" class="addb" data-act="iadd" data-i="${i}" style="margin:-14px 0 20px">+ Ligne</button>`:''}<a class="btn${x.tag?' blue':''}" href="#contact" data-pack="${esc(x.t)}">Recevoir une proposition</a>${TB('plans',i)}</div>`).join('');
+  $('L_plans').innerHTML = L.plans.map((x,i)=>`<div class="plan it${x.tag?' rec':''}">${(x.tag||ED)?`<span class="tag">${P(`plans.${i}.tag`,x.tag||'')}</span>`:''}${P(`plans.${i}.t`,x.t,'h3')}${P(`plans.${i}.v`,x.v,'div','d')}${P(`plans.${i}.u`,x.u,'span','m')}<ul>${x.items.map((it,k)=>`<li>${P(`plans.${i}.items.${k}`,it)}${ED?` <button type="button" class="edlink" data-act="idel" data-i="${i}" data-k2="${k}">retirer</button>`:''}</li>`).join('')}</ul>${ED?`<button type="button" class="addb" data-act="iadd" data-i="${i}" style="margin:-14px 0 20px">+ Ligne</button>`:''}<a class="btn${x.tag?' blue':''}" href="#contact" data-pack="${esc(x.t)}"><span data-k="plan_cta">Recevoir une proposition</span></a>${TB('plans',i)}</div>`).join('');
   $('L_addons').innerHTML = L.addons.map((x,i)=>`<div class="it">${P(`addons.${i}.t`,x.t,'h3')}${P(`addons.${i}.d`,x.d,'p','m')}${TB('addons',i)}</div>`).join('') + (ED?`<div>${ADD('addons')}${ADD('plans').replace('+ Ajouter','+ Ajouter une offre')}</div>`:'');
   $('pack').innerHTML = ['Je ne sais pas encore', ...L.plans.map(p=>p.t), ...L.addons.map(a=>a.t)].map(o=>`<option>${esc(o)}</option>`).join('');
   document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.dataset.k0 == null) el.dataset.k0 = el.textContent; el.textContent = fr(C.t[k] != null ? C.t[k] : el.dataset.k0); });

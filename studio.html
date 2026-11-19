@@ -197,21 +197,30 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     const { data: ok } = await sb.rpc('flova_is_editor');
     return !!ok;
   }
-  async function startLogin() {
-    login = { step: 'mail' };
-    const d = bubble('Connecte-toi pour modifier ton site 🔐\n<button type="button" class="gg"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continuer avec Google</button><a class="alt">Ou recevoir un code par e-mail</a>', 'in'); sheet(true);
+  let wantAfter = null;
+  async function startLogin(intro) {
+    login = { step: 'choix' };
+    const d = bubble((intro || 'Connecte-toi pour modifier ton site 🔐') + '\n<button type="button" class="gg"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continuer avec Google</button><a class="alt">Ou recevoir un code par e-mail</a>', 'in'); sheet(true);
     d.querySelector('.gg').addEventListener('click', async () => {
-      try { sessionStorage.setItem('flova-google', '1'); } catch (x) {}
+      try { sessionStorage.setItem('flova-google', '1'); if (wantAfter) sessionStorage.setItem('flova-apres', wantAfter); } catch (x) {}
       const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/studio', queryParams: { prompt: 'select_account' } } });
       if (error) bubble('La connexion Google n’est pas disponible pour le moment. Utilise le code par e-mail.', 'in');
     });
     d.querySelector('.alt').addEventListener('click', () => {
+      login = { step: 'mail' };
       let m = ''; try { m = localStorage.getItem('flova-mail') || ''; } catch (x) {}
       bubble('Tape ton adresse e-mail autorisée.' + (m ? `\nPar exemple : <b>${esc(m)}</b>` : ''), 'in');
       txt.placeholder = 'Ton adresse e-mail…'; txt.focus();
     });
   }
   async function loginStep(v) {
+    if (login.step === 'choix') {
+      if (/^\S+@\S+\.\S+$/.test(v.trim())) login = { step: 'mail' };
+      else {
+        wantAfter = v.trim(); bubble(esc(wantAfter), 'out'); txt.value = ''; setBtn();
+        return startLogin('C’est noté 👍 Connecte-toi d’abord, en un toucher : je ferai ta demande juste après.');
+      }
+    }
     if (login.step === 'mail') {
       const em = v.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(em)) return bubble('Cette adresse ne semble pas valide. Réessaie.', 'in');
@@ -231,7 +240,14 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     if (!(await checkEditor())) { await sb.auth.signOut(); login = { step: 'mail' }; txt.placeholder = 'Ton adresse e-mail…'; return bubble('Cette adresse n’a pas l’accès à la modification du site. Essaie une autre adresse.', 'in'); }
     login = null; editor = true; txt.placeholder = 'Ta demande…'; txt.removeAttribute('inputmode');
     post({ type: 'apercu-session' });
-    welcome(true);
+    welcome(true); runAfter();
+  }
+  function runAfter() {
+    let w = wantAfter; try { w = w || sessionStorage.getItem('flova-apres'); sessionStorage.removeItem('flova-apres'); } catch (x) {}
+    wantAfter = null;
+    if (!w) return;
+    const go2 = () => ready ? ask(w) : setTimeout(go2, 500);
+    setTimeout(go2, 600);
   }
   function welcome(first) {
     bubble((first ? 'C’est bon, tu es connecté ✓\n' : 'Salut 👋 ') + 'Dis-moi ce que tu veux changer sur ton site, à l’écrit ou à la voix 🎤. Je le fais et c’est en ligne tout de suite.\nTu peux toujours revenir en arrière avec ↶ Annuler.', 'in');
@@ -331,7 +347,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   }
   $('pic').addEventListener('change', async () => {
     const f = $('pic').files[0]; $('pic').value = ''; if (!f) return;
-    if (!editor) return startLogin();
+    if (!editor) return startLogin('Connecte-toi d’abord pour envoyer une photo 🔐');
     const local = URL.createObjectURL(f);
     bubble(`<img src="${local}" alt="">`, 'out'); sheet(true);
     const w = bubble('J’envoie ta photo…', 'in');
@@ -353,7 +369,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     if (/error_description=/.test(location.hash + location.search)) { history.replaceState(null, '', '/studio'); bubble('La connexion Google n’a pas abouti. Réessaie, ou utilise le code par e-mail.', 'in'); return startLogin(); }
     await new Promise(r => setTimeout(r, /access_token=|[?&]code=/.test(location.hash + location.search) ? 1200 : 0));
     if (/access_token=|[?&]code=/.test(location.hash + location.search)) history.replaceState(null, '', '/studio');
-    if (await checkEditor()) { editor = true; post && ready && post({ type: 'apercu-session' }); welcome(g); }
+    if (await checkEditor()) { editor = true; post && ready && post({ type: 'apercu-session' }); welcome(g); runAfter(); }
     else {
       const { data: s0 } = await sb.auth.getSession();
       if (s0.session) { const em = s0.session.user?.email || ''; await sb.auth.signOut(); bubble(`L’adresse <b>${esc(em)}</b> n’a pas l’accès à la modification de ce site. Connecte-toi avec une adresse autorisée.`, 'in'); }

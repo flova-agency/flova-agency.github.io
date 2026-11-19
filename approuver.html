@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Demande Flova</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800;125,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06070b;--ink:#f3f4f8;--mute:#9aa0b4;--blue:#2f5bff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,sans-serif;display:grid;place-items:center;padding:24px;-webkit-font-smoothing:antialiased}
+.box{width:min(520px,100%)}
+.logo{font:900 18px Archivo;font-stretch:125%;letter-spacing:.06em;display:flex;align-items:center;gap:10px;margin-bottom:40px}
+.logo i{width:12px;height:12px;background:var(--blue);transform:rotate(45deg);border-radius:2px}
+h1{font:900 clamp(30px,7vw,44px)/1.05 Archivo;font-stretch:125%;letter-spacing:-.02em;margin:0 0 18px}
+.q{background:#11131c;border:1px solid #232741;border-radius:16px;padding:16px 18px;white-space:pre-wrap;margin:18px 0}
+p{color:var(--mute);margin:0 0 10px}
+.ok{color:#7ee2a8}.no{color:#ff8a8a}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid #2a2f45;border-top-color:var(--blue);border-radius:50%;animation:s .8s linear infinite;vertical-align:-3px;margin-right:10px}
+@keyframes s{to{transform:rotate(360deg)}}
+a.b{display:inline-block;margin-top:14px;background:#fff;color:#06070b;text-decoration:none;font-weight:600;border-radius:999px;padding:12px 22px}
+small{display:block;margin-top:40px;color:#5d6378;font-size:12px}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo"><i></i>FLOVA</div>
+  <h1 id="h"><span class="spin"></span>Un instant…</h1>
+  <div id="q" class="q" hidden></div>
+  <p id="m"></p>
+  <small>build by Uxlab.ai</small>
+</div>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const P = new URLSearchParams(location.search), id = P.get('id'), t = P.get('t'), d = P.get('d') === 'non' ? 'non' : 'ok';
+  const KEY = 'sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB';
+  if (!id || !t) { $('h').textContent = 'Lien incomplet'; $('m').textContent = 'Ouvre le bouton directement depuis l’e-mail.'; return; }
+  try {
+    const r = await fetch('https://nhukbglercraslszazan.supabase.co/functions/v1/flova-demande', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY },
+      body: JSON.stringify({ action: 'decide', id, token: t, decision: d })
+    });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('erreur ' + r.status));
+    if (j.instruction) { $('q').textContent = j.instruction; $('q').hidden = false; }
+    if (j.already) { $('h').textContent = 'Déjà traitée'; $('m').innerHTML = 'Cette demande est : <b>' + j.label + '</b>.'; }
+    else if (j.status === 'approuvee') { $('h').innerHTML = '<span class="ok">Approuvée ✓</span>'; $('m').textContent = 'Elle part en fabrication. Furkan est prévenu, et il le sera encore quand ce sera en ligne.'; }
+    else { $('h').innerHTML = '<span class="no">Refusée</span>'; $('m').textContent = 'Furkan est prévenu. Il peut te répondre directement par e-mail.'; }
+  } catch (e) { $('h').textContent = 'Pas pu traiter le lien'; $('m').textContent = e.message + '. Réessaie dans un instant.'; }
+})();
+</script>
+</body>
+</html>

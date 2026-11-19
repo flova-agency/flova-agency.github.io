@@ -896,10 +896,10 @@ $('askGo').addEventListener('click', async () => {
     res = data;
   } catch (x) { $('askGo').disabled = false; return askMsg(esc(x.message || String(x)), true); }
   $('askGo').disabled = false;
-  if (!res?.site || !res.count) { askMsg(''); $('askSum').textContent = res?.resume || 'Rien n’a été changé.'; $('askBack').hidden = true; lastAsk = { instruction, reply: res?.resume || '' }; $('askUx').hidden = false; $('askUxMsg').textContent = 'Tu veux quand même ce changement ? Envoie la demande à Uxlab : elle sera approuvée, fabriquée puis mise en ligne.'; $('askUxMsg').style.color = '#4e5468'; $('askRes').classList.add('on'); $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  if (!res?.site || !res.count) { askMsg(''); $('askSum').textContent = res?.resume || 'Rien n’a été changé.'; $('askBack').hidden = true; lastAsk = { instruction, reply: res?.resume || '' }; $('askUx').hidden = res?.type !== 'hors_champ'; $('askUxMsg').textContent = res?.type === 'hors_champ' ? 'Tu veux quand même ce changement ? Envoie la demande à Uxlab : elle sera approuvée, fabriquée puis mise en ligne.' : ''; $('askUxMsg').style.color = '#4e5468'; showChoix(res?.choix); $('askRes').classList.add('on'); $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   try { applyAsk(res.site); render(); }
   catch (x) { Object.assign(C, before); render(); return askMsg('La modification n’a pas pu s’afficher, rien n’a été changé. Reformule ta demande.', true); }
-  askBefore = before; undoList = null; $('askUx').hidden = true; $('askUxMsg').textContent = '';
+  askBefore = before; undoList = null; $('askUx').hidden = true; $('askUxMsg').textContent = ''; showChoix(res.choix);
   await save();
   askMsg(''); $('askSum').textContent = '✓ ' + res.resume + ' C’est en ligne.'; $('askBack').hidden = false; $('askRes').classList.add('on');
   $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -934,6 +934,12 @@ $('reqGo').addEventListener('click', async () => {
   $('reqGo').disabled = false;
 });
 let lastAsk = null;
+function showChoix(list) {
+  let box = $('askChoix');
+  if (!box) { box = document.createElement('div'); box.id = 'askChoix'; box.className = 'chips'; box.style.marginTop = '10px'; $('askRes').appendChild(box); }
+  box.innerHTML = (list || []).map(c => `<button type="button">${esc(c)}</button>`).join('');
+  box.onclick = e => { const b = e.target.closest('button'); if (!b) return; $('askTxt').value = b.textContent; $('askGo').click(); };
+}
 $('askUx').addEventListener('click', async () => {
   if (!lastAsk) return;
   $('askUx').disabled = true; $('askUxMsg').textContent = 'Envoi…'; $('askUxMsg').style.color = '#4e5468';

@@ -34,6 +34,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 .b.out .t::after{content:" ✓✓";color:#53bdeb}
 .b a{color:#027eb5;font-weight:600;text-decoration:none;cursor:pointer}
 .b .ok{color:#008069;font-weight:600}
+.qr{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:92%;margin:-2px 0 4px}
+.qr button{font:500 13.5px Inter;background:#fff;color:#008069;border:1px solid #c7e8df;border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
 .typing{align-self:flex-start;background:#fff;border-radius:9px;padding:10px 14px;display:flex;gap:4px}
 .typing i{width:7px;height:7px;border-radius:50%;background:#8696a0;animation:bl 1.2s infinite}
 .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
@@ -181,8 +183,15 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         hist.push(cur); cur = j.site; post({ type: 'apercu-site', site: cur });
         const b = bubble(`<span class="ok">✓ C’est en ligne.</span>\n${esc(j.resume)}\n<a data-undo>↶ Annuler</a>`, 'in');
         b.querySelector('[data-undo]').addEventListener('click', undo);
+      } else if (j.type === 'hors_champ') {
+        bubble(`${esc(j.resume || 'Ça, je ne peux pas le faire moi-même.')}\n\n<b>Dans la vraie version</b>, un bouton envoie ta demande à l’équipe Uxlab : elle la fabrique, la teste et te prévient quand c’est en ligne.`, 'in');
       } else {
-        bubble(`${esc(j.resume || 'Je n’ai rien changé.')}\n\n<b>Dans la vraie version</b>, un bouton envoie ta demande à l’équipe Uxlab : elle la fabrique, la teste et te prévient quand c’est en ligne.`, 'in');
+        bubble(esc(j.resume || 'Dis-m’en un peu plus ?'), 'in');
+      }
+      if (Array.isArray(j.choix) && j.choix.length) {
+        const q = document.createElement('div'); q.className = 'qr';
+        j.choix.forEach(c => { const x = document.createElement('button'); x.type = 'button'; x.textContent = c; x.onclick = () => { q.remove(); ask(c); }; q.appendChild(x); });
+        msgs.appendChild(q); msgs.scrollTop = msgs.scrollHeight;
       }
     } catch (x) { typing(false); bubble('Petit souci de connexion. Réessaie dans un instant.', 'in'); }
     busy = false;

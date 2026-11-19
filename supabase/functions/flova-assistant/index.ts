@@ -39,12 +39,15 @@ Structure du contenu :
 - "links" : email, tiktok, instagram, seoTitle, seoDesc.
 
 Règles :
-1. Fais exactement ce qui est demandé, rien de plus. Garde tout le reste identique, caractère pour caractère.
-2. N'invente jamais de chiffre, de client ni de résultat. Si la demande en a besoin et ne le donne pas, ne change rien et demande-le dans "resume".
+0. AGIS D'ABORD. Le propriétaire veut un résultat, pas des questions. Si la demande est vague, courte, mal orthographiée ou dictée à la voix, choisis l'interprétation la plus probable et applique-la tout de suite : il peut toujours annuler. Ne réponds jamais seulement « précise-moi ».
+   Une demande de repositionnement (« mon site doit parler de X », « ce n'est pas mon activité », « rends-le plus pro / plus fun », « adresse-toi aux commerçants ») = tu réécris tous les textes et listes concernés (titres, accroches, expertises, méthode, secteurs, offres, pied de page, titre Google) dans ce sens, en gardant les faits réels déjà présents.
+   Dans ce cas, propose aussi dans "choix" 2 ou 3 autres directions possibles, chacune écrite comme une demande prête à envoyer (moins de 60 caractères), pour qu'il change d'avis d'un geste.
+1. Fais ce qui est demandé, sans toucher au reste. Garde tout le reste identique, caractère pour caractère.
+2. N'invente jamais de chiffre, de client, de nom ni de résultat. Seulement quand il manque une donnée de ce type (un chiffre, un nom, un lien) et rien d'autre : ne change rien, pose UNE question courte dans "resume", "type": "question", et mets dans "choix" 2 ou 3 réponses possibles prêtes à toucher si c'est pertinent.
 3. Jamais de prix sur le site.
 4. Images : réutilise uniquement des adresses déjà présentes dans le contenu ou données dans la demande (photos envoyées par le propriétaire), jamais l'image d'un autre client. Quand la demande fournit une photo sans préciser où la mettre, remplace l'image la plus logique et dis laquelle dans "resume". Pour un nouveau client ou une nouvelle étude de cas sans logo, mets "img": "" (ou "logo": "") : ses initiales s'affichent ; précise dans "resume" qu'on peut ajouter le logo avec le bouton « Changer l'image ». Pour une nouvelle photo sans image fournie, reprends une image déjà présente du même type.
 5. Écris en français soigné, dans le style du site : phrases courtes, chiffres au format « 1,2 M », « 27,8 K », « +430 ».
-6. Si la demande touche au design (couleurs, polices, mise en page) ou à quelque chose que ce contenu ne permet pas, ne change rien. Dans "resume", dis simplement que tu peux changer les textes, les listes, les sections (afficher, masquer, déplacer) et les liens, mais pas le design. N'invente aucun réglage ni menu.
+6. Si la demande touche au design (couleurs, polices, mise en page) ou à quelque chose que ce contenu ne permet vraiment pas (nouvelle page, nouvelle fonction, vidéo hébergée), ne change rien et mets "type": "hors_champ". Dans "resume", dis simplement que tu peux changer les textes, les listes, les sections (afficher, masquer, déplacer) et les liens, mais pas le design. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
 {"changes": {
@@ -54,7 +57,9 @@ Réponds uniquement avec un objet JSON de cette forme :
    "order": [la liste complète des sections dans le nouvel ordre, seulement si l'ordre change],
    "links": {seulement les liens modifiés}
  },
- "resume": "une phrase courte, en tutoyant, qui dit ce que tu as fait"}
+ "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
+ "type": "fait" | "question" | "hors_champ",
+ "choix": ["jusqu'à 3 demandes ou réponses prêtes à toucher, facultatif"]}
 Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
 
 function clean(ch: any, prev: any) {
@@ -126,7 +131,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: Deno.env.get("FLOVA_MODEL") || "deepseek-flash",
         temperature: 0.2,
-        max_tokens: 8000,
+        max_tokens: 12000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
@@ -146,7 +151,9 @@ Deno.serve(async (req) => {
     const parsed = JSON.parse(m[0]);
     const { site: next, count } = clean(parsed.changes || {}, site);
     await logUse(count > 0);
-    return json({ site: next, count, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 400) });
+    const type = count ? "fait" : (["question", "hors_champ"].includes(parsed.type) ? parsed.type : "question");
+    const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, 3).map((c: string) => c.trim().slice(0, 80));
+    return json({ site: next, count, type, choix, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 500) });
   } catch (e) {
     return json({ error: "Erreur de l'assistant : " + (e instanceof Error ? e.message : String(e)) }, 500);
   }

@@ -161,10 +161,10 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 
 /* secteurs */
 .sect{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:24px;overflow:hidden;margin-top:56px}
-.sect div{background:var(--bg);padding:34px 28px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between;gap:30px}
+.sect>div{background:var(--bg);padding:34px 28px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between;gap:30px}
 .sect h3{font-family:Archivo;font-stretch:115%;font-weight:800;font-size:24px}
 @media(max-width:900px){.sect{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.sect{grid-template-columns:1fr}.sect div{min-height:0}}
+@media(max-width:520px){.sect{grid-template-columns:1fr}.sect>div{min-height:0}}
 
 /* modèles */
 .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:56px}
@@ -219,6 +219,8 @@ body.ed [data-hide="1"]{display:block!important;opacity:.35}
 .it{position:relative}
 .tb{display:none;position:absolute;top:6px;right:6px;z-index:20;gap:4px;background:#06070b;border:1px solid #2f5bff;border-radius:10px;padding:4px}
 body.ed .it>.tb{display:flex}
+.hero .wrap.edwrap{display:block;min-height:0;padding:0 max(5vw,18px) 30px}
+body:not(.ed) .hero .edwrap,body:not(.ed) .tb,body:not(.ed) .secbar,body:not(.ed) .imgb,body:not(.ed) .addb,body:not(.ed) .edlink{display:none!important}
 .tb button,.addb,.secbar button,.imgb{font:600 13px Inter;color:#fff;background:#1a1f33;border:0;border-radius:7px;min-width:34px;min-height:34px;padding:0 9px;cursor:pointer}
 .tb button:hover,.secbar button:hover{background:#2f5bff}
 .addb{display:none;margin-top:14px;background:#2f5bff;min-height:44px;padding:0 18px}
@@ -235,6 +237,19 @@ body.ed .k{row-gap:34px}
 body.ed .imgb{display:inline-flex;align-items:center}
 .edbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:100;display:none;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:#0e1017;border:1px solid #2f5bff;border-radius:16px;padding:10px 12px;box-shadow:0 20px 50px rgba(0,0,0,.6);max-width:calc(100vw - 24px)}
 body.ed .edbar{display:flex}
+.edmore{display:contents}
+#edMoreB,.edbar .sm{display:none}
+@media(max-width:700px){
+ .edbar{left:8px;right:8px;bottom:8px;transform:none;max-width:none;padding:8px;gap:6px;border-radius:14px}
+ #edstate{flex:1 1 100%;font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .edbar button{min-height:40px;padding:0 12px;font-size:13px;flex:1}
+ .edbar .lg{display:none}.edbar .sm,#edMoreB{display:inline}
+ .edmore{display:none}
+ .edbar.open .edmore{display:flex;flex-wrap:wrap;gap:6px;width:100%;order:5}
+ .edbar.open .edmore button{flex:1 1 calc(50% - 6px)}
+ body.ed{padding-bottom:110px}
+}
+
 .edbar span{font-size:14px;color:#c6cad8}
 .edbar b{color:#7ee2a8;font-weight:600}
 .edbar button{font:600 14px Inter;border:0;border-radius:10px;min-height:42px;padding:0 14px;cursor:pointer;background:#1a1f33;color:#fff}
@@ -245,6 +260,11 @@ body.ed .edbar{display:flex}
 .mbox h3{font:800 24px Archivo;font-stretch:115%;margin:0}
 .mbox p{color:#4e5468;font-size:15px;margin:0}
 .mbox .btn{background:#06070b;color:#fff;width:100%}
+.hlist{display:grid;gap:8px;max-height:55vh;overflow:auto}
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e3e6ef;border-radius:12px;padding:10px 12px;font-size:14px}
+.hrow small{display:block;color:#6b7188}
+.hrow button{font:600 13px Inter;background:#06070b;color:#fff;border:0;border-radius:9px;min-height:38px;padding:0 14px;cursor:pointer;flex:none}
+.hrow.cur{background:#f3f5fb}
 .mbox .x{justify-self:end;background:none;border:0;font-size:15px;color:#4e5468;cursor:pointer;min-height:36px}
 .mmsg{font-size:14px;min-height:20px;margin:0}
 .edlink{background:none;border:0;color:var(--mute);font:14px Inter;cursor:pointer;padding:0;text-decoration:underline}
@@ -276,7 +296,7 @@ body.ed .edbar{display:flex}
       <div class="col"><div class="track" id="t3"></div></div>
     </div>
   </div>
-  <div class="wrap" style="padding:0 max(5vw,18px) 30px"><div id="L_tiles" class="edonly"></div></div>
+  <div class="wrap edwrap"><div id="L_tiles" class="edonly"></div></div>
 </header>
 
 <div class="clients" data-s="clients">
@@ -376,10 +396,15 @@ body.ed .edbar{display:flex}
 <button type="button" id="edFab" hidden style="position:fixed;right:16px;bottom:16px;z-index:90;font:600 14px Inter;background:#2f5bff;color:#fff;border:0;border-radius:999px;min-height:46px;padding:0 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);cursor:pointer">Modifier le site</button>
 <div class="edbar" id="edbar">
   <span id="edstate">Mode modification</span>
-  <button type="button" id="edLinks">Liens et e-mail</button>
-  <button type="button" id="edUndo">Annuler la dernière modification</button>
+  <button type="button" id="edUndo"><span class="lg">Annuler la dernière modification</span><span class="sm">↶ Annuler</span></button>
+  <div class="edmore">
+    <button type="button" id="edHist">Historique</button>
+    <button type="button" id="edLinks">Réglages</button>
+    <button type="button" id="edAcc">Accès</button>
+    <button type="button" id="edOut">Se déconnecter</button>
+  </div>
+  <button type="button" id="edMoreB">Plus</button>
   <button type="button" class="p" id="edQuit">Terminer</button>
-  <button type="button" id="edOut">Se déconnecter</button>
 </div>
 
 <div class="modal" id="mLogin"><div class="mbox">
@@ -397,11 +422,30 @@ body.ed .edbar{display:flex}
 
 <div class="modal" id="mLinks"><div class="mbox">
   <button class="x" type="button" data-close>Fermer</button>
-  <h3>Liens et e-mail</h3>
+  <h3>Réglages</h3>
   <div class="f"><label for="lkMail">E-mail de contact (reçoit les demandes)</label><input id="lkMail" type="email"></div>
   <div class="f"><label for="lkTt">Lien TikTok</label><input id="lkTt" type="url"></div>
   <div class="f"><label for="lkIg">Lien Instagram</label><input id="lkIg" type="url"></div>
+  <div class="f"><label for="lkTitle">Titre affiché par Google</label><input id="lkTitle" type="text" maxlength="70"></div>
+  <div class="f"><label for="lkDesc">Description affichée par Google</label><textarea id="lkDesc" rows="3" maxlength="170"></textarea></div>
   <button class="btn" type="button" id="lkSave">Enregistrer</button>
+</div></div>
+
+<div class="modal" id="mHist"><div class="mbox" style="width:min(560px,100%)">
+  <button class="x" type="button" data-close>Fermer</button>
+  <h3>Historique</h3>
+  <p>Chaque version du site est gardée. Restaurer une version la remet en ligne tout de suite ; la version actuelle reste dans la liste, rien n'est perdu.</p>
+  <div id="hList" class="hlist"></div>
+</div></div>
+
+<div class="modal" id="mAcc"><div class="mbox" style="width:min(520px,100%)">
+  <button class="x" type="button" data-close>Fermer</button>
+  <h3>Accès</h3>
+  <p>Les adresses ci-dessous peuvent modifier le site. Ajoutez celle d'un associé ou retirez-la quand vous voulez.</p>
+  <div id="aList" class="hlist"></div>
+  <div class="f"><label for="aMail">Ajouter une adresse</label><input id="aMail" type="email" placeholder="prenom@exemple.com"></div>
+  <button class="btn" type="button" id="aAdd">Ajouter</button>
+  <p class="mmsg" id="aMsg" role="status"></p>
 </div></div>
 
 <input type="file" id="pick" accept="image/*" hidden>
@@ -411,6 +455,10 @@ body.ed .edbar{display:flex}
 {
 const SB_URL = 'https://nhukbglercraslszazan.supabase.co';
 const SB_KEY = 'sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB';
+/* lien de connexion : « …/#modifier#access_token=… » (anciens liens) ou « …/?modifier#access_token=… » */
+const WANT_ED = /[?&]modifier\b/.test(location.search) || /^#modifier/.test(location.hash);
+if (/^#modifier#/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + '#' + location.hash.slice(10));
+const LINK0 = location.hash + ' ' + location.search;
 const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'flova-auth' } }) : null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -457,9 +505,12 @@ const BLANK = {
 };
 
 let C = clone(DEF), ED = false, user = null, rowExists = false;
+const META_DESC = document.querySelector('meta[name=description]')?.content || '', TITLE0 = document.title;
+/* espaces insécables de la typographie française, à l'affichage seulement */
+const fr = t => ED ? t : String(t).replace(/ ([:;!?»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
 
 /* ---------- rendu ---------- */
-const P = (path, v, tag='span', cls='') => `<${tag}${cls?` class="${cls}"`:''} data-p="${path}">${esc(v)}</${tag}>`;
+const P = (path, v, tag='span', cls='') => `<${tag}${cls?` class="${cls}"`:''} data-p="${path}">${esc(fr(v))}</${tag}>`;
 const TB = (list, i, extra='') => `<div class="tb">${extra}<button type="button" data-act="up" data-l="${list}" data-i="${i}" aria-label="Monter">↑</button><button type="button" data-act="down" data-l="${list}" data-i="${i}" aria-label="Descendre">↓</button><button type="button" data-act="dup" data-l="${list}" data-i="${i}" aria-label="Dupliquer">⧉</button><button type="button" data-act="del" data-l="${list}" data-i="${i}" aria-label="Supprimer">✕</button></div>`;
 const IMGB = path => `<button type="button" class="imgb" data-img="${path}">Changer l'image</button>`;
 const ADD = list => `<button type="button" class="addb" data-act="add" data-l="${list}">+ Ajouter</button>`;
@@ -492,7 +543,9 @@ function render() {
   $('L_plans').innerHTML = L.plans.map((x,i)=>`<div class="plan it${x.tag?' rec':''}">${(x.tag||ED)?`<span class="tag">${P(`plans.${i}.tag`,x.tag||'')}</span>`:''}${P(`plans.${i}.t`,x.t,'h3')}${P(`plans.${i}.v`,x.v,'div','d')}${P(`plans.${i}.u`,x.u,'span','m')}<ul>${x.items.map((it,k)=>`<li>${P(`plans.${i}.items.${k}`,it)}${ED?` <button type="button" class="edlink" data-act="idel" data-i="${i}" data-k2="${k}">retirer</button>`:''}</li>`).join('')}</ul>${ED?`<button type="button" class="addb" data-act="iadd" data-i="${i}" style="margin:-14px 0 20px">+ Ligne</button>`:''}<a class="btn${x.tag?' blue':''}" href="#contact" data-pack="${esc(x.t)}">Recevoir une proposition</a>${TB('plans',i)}</div>`).join('');
   $('L_addons').innerHTML = L.addons.map((x,i)=>`<div class="it">${P(`addons.${i}.t`,x.t,'h3')}${P(`addons.${i}.d`,x.d,'p','m')}${TB('addons',i)}</div>`).join('') + (ED?`<div>${ADD('addons')}${ADD('plans').replace('+ Ajouter','+ Ajouter une offre')}</div>`:'');
   $('pack').innerHTML = ['Je ne sais pas encore', ...L.plans.map(p=>p.t), ...L.addons.map(a=>a.t)].map(o=>`<option>${esc(o)}</option>`).join('');
-  document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (C.t[k] != null) el.textContent = C.t[k]; });
+  document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; if (el.dataset.k0 == null) el.dataset.k0 = el.textContent; el.textContent = fr(C.t[k] != null ? C.t[k] : el.dataset.k0); });
+  document.title = C.links.seoTitle || TITLE0;
+  const md = document.querySelector('meta[name=description]'); if (md) md.content = C.links.seoDesc || META_DESC;
   const em = C.links.email || DEF.links.email;
   document.querySelectorAll('.mailto').forEach(a => { a.href = 'mailto:' + em; if (!a.querySelector('[data-k]')) a.textContent = em; });
   [['a_tt','tiktok'],['a_tt2','tiktok'],['a_ig','instagram'],['a_ig2','instagram']].forEach(([id,k]) => { if (C.links[k]) $(id).href = C.links[k]; });
@@ -517,20 +570,22 @@ const getP = (path) => path.split('.').reduce((o, k) => o?.[k], C.L);
 function setP(path, v) { const ks = path.split('.'); const last = ks.pop(); const o = ks.reduce((o, k) => o[k], C.L); o[last] = v; }
 
 /* ---------- enregistrement ---------- */
-let saveT = null, saving = false, pending = false;
+let saveT = null, saving = false, pending = false, dirty = false;
+window.addEventListener('beforeunload', e => { if (ED && (dirty || saving)) { e.preventDefault(); e.returnValue = ''; } });
 const state = (t, ok) => { $('edstate').innerHTML = ok ? `<b>${esc(t)}</b>` : esc(t); };
-function queueSave() { state('Modification en cours…'); clearTimeout(saveT); saveT = setTimeout(save, 500); }
+function queueSave() { dirty = true; undoList = null; state('Modification en cours…'); clearTimeout(saveT); saveT = setTimeout(save, 500); }
 async function save() {
   if (!sb || !user) return;
   if (saving) { pending = true; return; }
   saving = true;
   const data = { links: C.links, t: C.t, hide: C.hide, L: C.L, v: 1 };
+  dirty = true;
   const { error } = rowExists
     ? await sb.from('flova_content').update({ data }).eq('id', 'site')
     : await sb.from('flova_content').insert({ id: 'site', data });
   saving = false;
-  if (error) { state('Échec de l’enregistrement : ' + error.message); return; }
-  rowExists = true;
+  if (error) { state('Connexion perdue, nouvel essai dans 4 secondes…'); clearTimeout(saveT); saveT = setTimeout(save, 4000); return; }
+  rowExists = true; dirty = false;
   state('Enregistré, en ligne ✓', true);
   if (pending) { pending = false; save(); }
 }
@@ -598,19 +653,20 @@ function shrink(file, max) {
 }
 
 /* ---------- connexion ---------- */
+let JUST_LOGGED = /access_token=|type=(magiclink|signup|email)/.test(LINK0) || /[?&]code=/.test(LINK0);
 const msg = (t, bad) => { $('lgMsg').textContent = t; $('lgMsg').style.color = bad ? '#c0262d' : '#1b7a43'; };
 function openLogin() { if (user) return enterEd(); $('mLogin').classList.add('on'); $('lgMail').focus(); }
 $('openEd').addEventListener('click', openLogin);
 const EDITABLE_HOST = location.protocol === 'file:' || /(^|\.)github\.io$/.test(location.hostname) || /flova/.test(location.hostname);
 $('openEd').hidden = true;
-if (location.hash === '#modifier') setTimeout(() => { if (!user) openLogin(); }, 900);
+if ((location.hash === '#modifier' || /[?&]modifier\b/.test(location.search)) && !/access_token=/.test(LINK0)) setTimeout(() => { if (!user) openLogin(); }, 1200);
 window.addEventListener('hashchange', () => { if (location.hash === '#modifier') openLogin(); });
 $('lgSend').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(em)) return msg('Adresse e-mail non valide.', true);
   if (!sb) return msg('Connexion impossible pour le moment. Réessayez dans un instant.', true);
   $('lgSend').disabled = true; msg('Envoi en cours…');
-  const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname + '#modifier' } });
+  const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname + '?modifier' } });
   $('lgSend').disabled = false;
   if (error) return msg(error.status === 429 ? 'Trop de demandes. Attendez une minute puis réessayez.' : 'Envoi impossible : ' + error.message, true);
   $('lgStep2').style.display = 'grid';
@@ -619,6 +675,7 @@ $('lgSend').addEventListener('click', async () => {
 $('lgVerify').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase(), code = $('lgCode').value.replace(/\D/g, '');
   if (code.length < 6) return msg('Le code contient au moins 6 chiffres.', true);
+  JUST_LOGGED = true;
   const { error } = await sb.auth.verifyOtp({ email: em, token: code, type: 'email' });
   if (error) return msg('Code incorrect ou expiré. Demandez un nouvel accès.', true);
 });
@@ -628,25 +685,78 @@ async function onSession(s, ev) {
   const { data: ok } = await sb.rpc('flova_is_editor');
   if (!ok) { msg('Cette adresse n’a pas l’accès à la modification du site.', true); await sb.auth.signOut(); user = null; return; }
   $('mLogin').classList.remove('on');
-  if (ev === 'SIGNED_IN' || location.hash === '#modifier') enterEd(); else $('edFab').hidden = false;
+  if (!ED && (JUST_LOGGED || WANT_ED || location.hash === '#modifier')) { JUST_LOGGED = false; enterEd(); } else if (!ED) $('edFab').hidden = false;
+  if (/[?&]modifier\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#modifier');
 }
 $('edFab').addEventListener('click', () => enterEd());
-function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state('Mode modification : cliquez sur un texte pour le changer. Tout est enregistré et publié aussitôt.'); }
+$('edMoreB').addEventListener('click', () => { const o = $('edbar').classList.toggle('open'); $('edMoreB').textContent = o ? 'Moins' : 'Plus'; });
+$('edbar').addEventListener('click', e => { if (e.target.closest('.edmore button')) { $('edbar').classList.remove('open'); $('edMoreB').textContent = 'Plus'; } });
+function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state('Touchez un texte pour le changer. Tout est publié aussitôt.'); }
 function leaveEd() { $('edFab').hidden = !user; ED = false; document.body.classList.remove('ed'); render(); }
 $('edQuit').addEventListener('click', async () => { clearTimeout(saveT); await save(); leaveEd(); });
 $('edOut').addEventListener('click', async () => { clearTimeout(saveT); await save(); await sb.auth.signOut(); leaveEd(); });
+let undoList = null, undoPos = 0;
+async function restore(id, label) {
+  clearTimeout(saveT); if (dirty) await save();
+  const { data, error } = await sb.rpc('flova_restore', { p_id: id });
+  if (error) { state('Restauration impossible : ' + error.message); return false; }
+  apply(data); render(); rowExists = true; dirty = false; state(label, true); return true;
+}
 $('edUndo').addEventListener('click', async () => {
-  const { data, error } = await sb.from('flova_history').select('id,data').order('id', { ascending: false }).limit(1);
-  if (error || !data?.length) return state('Rien à annuler.');
-  apply(data[0].data); render();
-  await sb.from('flova_content').update({ data: data[0].data }).eq('id', 'site');
-  await sb.from('flova_history').delete().eq('id', data[0].id);
-  state('Dernière modification annulée ✓', true);
+  clearTimeout(saveT); if (dirty) await save();
+  if (!undoList) {
+    const { data, error } = await sb.from('flova_history').select('id').order('id', { ascending: false }).limit(200);
+    if (error) return state('Historique indisponible : ' + error.message);
+    undoList = (data || []).map(r => r.id); undoPos = 0;
+  }
+  if (undoPos >= undoList.length) return state('Rien de plus ancien à annuler.');
+  const list = undoList, id = list[undoPos++];
+  const ok = await restore(id, 'Modification annulée ✓  (appuyez encore pour remonter plus loin)');
+  undoList = ok ? list : null;
 });
-$('edLinks').addEventListener('click', () => { $('lkMail').value = C.links.email || ''; $('lkTt').value = C.links.tiktok || ''; $('lkIg').value = C.links.instagram || ''; $('mLinks').classList.add('on'); });
+async function loadAcc() {
+  const { data, error } = await sb.rpc('flova_editors_list');
+  if (error) { $('aList').innerHTML = '<p>Liste indisponible.</p>'; return; }
+  const me = (user?.email || '').toLowerCase();
+  $('aList').innerHTML = (data || []).map(em => `<div class="hrow"><div><b>${esc(em)}</b>${em === me ? '<small>vous</small>' : ''}</div>${em === me ? '' : `<button type="button" data-rm="${esc(em)}">Retirer</button>`}</div>`).join('');
+}
+const amsg = (t, bad) => { $('aMsg').textContent = t; $('aMsg').style.color = bad ? '#c0262d' : '#1b7a43'; };
+$('edAcc').addEventListener('click', () => { amsg(''); $('aMail').value = ''; $('aList').innerHTML = '<p>Chargement…</p>'; $('mAcc').classList.add('on'); loadAcc(); });
+$('aAdd').addEventListener('click', async () => {
+  const em = $('aMail').value.trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(em)) return amsg('Adresse e-mail non valide.', true);
+  const { error } = await sb.rpc('flova_editor_add', { p_email: em });
+  if (error) return amsg('Ajout impossible : ' + error.message, true);
+  $('aMail').value = ''; amsg(em + ' peut maintenant modifier le site via le lien de modification.'); loadAcc();
+});
+$('aList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-rm]'); if (!b) return;
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Confirmer'; return; }
+  const { error } = await sb.rpc('flova_editor_remove', { p_email: b.dataset.rm });
+  if (error) return amsg('Retrait impossible : ' + error.message, true);
+  amsg('Adresse retirée.'); loadAcc();
+});
+const when = d => new Date(d).toLocaleString('fr-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+$('edHist').addEventListener('click', async () => {
+  $('hList').innerHTML = '<p>Chargement…</p>'; $('mHist').classList.add('on');
+  clearTimeout(saveT); if (dirty) await save();
+  const [{ data: cur }, { data, error }] = await Promise.all([
+    sb.from('flova_content').select('updated_at,updated_by').eq('id', 'site').maybeSingle(),
+    sb.from('flova_history').select('id,at,by').order('id', { ascending: false }).limit(100)]);
+  if (error) { $('hList').innerHTML = '<p>Historique indisponible.</p>'; return; }
+  const top = cur ? `<div class="hrow cur"><div><b>Version en ligne</b><small>${esc(when(cur.updated_at))} · ${esc(cur.updated_by || '')}</small></div></div>` : '';
+  $('hList').innerHTML = top + (data.length ? data.map(r => `<div class="hrow"><div><b>${esc(when(r.at))}</b><small>enregistrée par ${esc(r.by || '—')}</small></div><button type="button" data-ver="${r.id}">Restaurer</button></div>`).join('') : '<p>Pas encore d’ancienne version : elles apparaîtront ici au fil des modifications.</p>');
+});
+$('hList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-ver]'); if (!b) return;
+  b.disabled = true; b.textContent = 'Restauration…';
+  if (await restore(+b.dataset.ver, 'Version restaurée et en ligne ✓')) { undoList = null; $('mHist').classList.remove('on'); }
+  else { b.disabled = false; b.textContent = 'Restaurer'; }
+});
+$('edLinks').addEventListener('click', () => { $('lkMail').value = C.links.email || ''; $('lkTt').value = C.links.tiktok || ''; $('lkIg').value = C.links.instagram || ''; $('lkTitle').value = C.links.seoTitle || document.title; $('lkDesc').value = C.links.seoDesc || META_DESC; $('mLinks').classList.add('on'); });
 $('lkSave').addEventListener('click', () => {
   const em = $('lkMail').value.trim(); if (em && !/^\S+@\S+\.\S+$/.test(em)) return alertIn('E-mail non valide');
-  C.links = { email: em || DEF.links.email, tiktok: $('lkTt').value.trim() || DEF.links.tiktok, instagram: $('lkIg').value.trim() || DEF.links.instagram };
+  C.links = { email: em || DEF.links.email, tiktok: $('lkTt').value.trim() || DEF.links.tiktok, instagram: $('lkIg').value.trim() || DEF.links.instagram, seoTitle: $('lkTitle').value.trim(), seoDesc: $('lkDesc').value.trim() };
   $('mLinks').classList.remove('on'); render(); save();
 });
 function alertIn(t) { $('lkSave').textContent = t; setTimeout(() => $('lkSave').textContent = 'Enregistrer', 2000); }

@@ -286,6 +286,12 @@ body.ed .edbar{display:flex}
 .hrow small{display:block;color:#6b7188}
 .hrow button{font:600 13px Inter;background:#06070b;color:#fff;border:0;border-radius:9px;min-height:38px;padding:0 14px;cursor:pointer;flex:none}
 .hrow.cur{background:#f3f5fb}
+.ubig{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ubig div{background:#f3f5fb;border-radius:14px;padding:14px}
+.ubig b{display:block;font:800 26px Archivo;font-stretch:110%;color:#06070b}
+.ubig span{font-size:13px;color:#4e5468}
+.ubar{height:10px;border-radius:99px;background:#e6e9f2;overflow:hidden;margin:4px 0 2px}
+.ubar i{display:block;height:100%;background:#2f5bff;border-radius:99px}
 .lgf{display:grid;grid-template-columns:1fr;gap:14px;margin:0;padding:0;background:none;border-radius:0;box-shadow:none}
 .mbox .x{justify-self:end;background:none;border:0;font-size:15px;color:#4e5468;cursor:pointer;min-height:36px}
 .mmsg{font-size:14px;min-height:20px;margin:0}
@@ -425,6 +431,7 @@ body.ed .edbar{display:flex}
     <button type="button" id="edLinks">Réglages</button>
     <button type="button" id="edAcc">Accès</button>
     <button type="button" id="edReq">Demandes</button>
+    <button type="button" id="edUse">Consommation IA</button>
     <button type="button" id="edOut">Se déconnecter</button>
   </div>
   <button type="button" id="edMoreB">Plus</button>
@@ -500,6 +507,13 @@ body.ed .edbar{display:flex}
   <p class="mmsg" id="reqMsg" role="status"></p>
   <p style="font-size:13px;margin-top:6px">Mes demandes :</p>
   <div id="rList" class="hlist"></div>
+</div></div>
+
+<div class="modal" id="mUse"><div class="mbox" style="width:min(560px,100%)">
+  <button class="x" type="button" data-close>Fermer</button>
+  <h3>Consommation IA</h3>
+  <p>Ce que coûtent les demandes faites à l’assistant ✦ Demander. Estimation au tarif plein du modèle, en euros.</p>
+  <div id="uBox"></div>
 </div></div>
 
 <input type="file" id="pick" accept="image/*" hidden>
@@ -926,6 +940,20 @@ $('askUx').addEventListener('click', async () => {
   try { await sendReq(lastAsk.instruction, lastAsk.reply); $('askUx').hidden = true; $('askUxMsg').textContent = 'Envoyée à Uxlab ✓ Tu recevras un e-mail dès qu’elle sera approuvée.'; $('askUxMsg').style.color = '#1b7a43'; }
   catch (x) { $('askUxMsg').textContent = x.message; $('askUxMsg').style.color = '#c0262d'; }
   $('askUx').disabled = false;
+});
+
+/* ---------- consommation IA ---------- */
+const eur = v => { v = Number(v) || 0; if (!v) return '0 €'; if (v < 0.01) return (v * 100).toLocaleString('fr-BE', { maximumFractionDigits: 3 }) + ' centime'; return v.toLocaleString('fr-BE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 3 : 2 }); };
+$('edUse').addEventListener('click', async () => {
+  $('uBox').innerHTML = '<p>Chargement…</p>'; $('mUse').classList.add('on');
+  const { data: u, error } = await sb.rpc('flova_ai_summary');
+  if (error || !u) { $('uBox').innerHTML = '<p>Consommation indisponible pour le moment.</p>'; return; }
+  const pct = u.budget_eur > 0 ? Math.min(100, Math.round(100 * u.mois_eur / u.budget_eur)) : 0;
+  const moy = u.mois_demandes ? u.mois_eur / u.mois_demandes : 0;
+  $('uBox').innerHTML = `<div class="ubig"><div><b>${eur(u.mois_eur)}</b><span>ce mois-ci, ${u.mois_demandes} demande${u.mois_demandes > 1 ? 's' : ''}</span></div><div><b>${eur(u.budget_eur)}</b><span>budget du mois</span></div></div>
+  <div><div class="ubar"><i style="width:${pct}%;${pct >= 80 ? 'background:#e0672b' : ''}"></i></div><span style="font-size:13px;color:#4e5468">${pct} % du budget utilisé${moy ? ' · environ ' + eur(moy) + ' par demande, soit à peu près ' + Math.floor(1 / moy).toLocaleString('fr-BE') + ' demandes pour 1 €' : ''}${pct >= 80 ? ' · bientôt atteint' : ''}</span></div>
+  <p style="font-size:14px">Depuis le début : <b>${eur(u.total_eur)}</b> pour ${u.total_demandes} demande${u.total_demandes > 1 ? 's' : ''}. Demandes à Uxlab : ${u.auto_approve === true ? '<b>approuvées automatiquement</b>' : 'approuvées par Uxlab'}.</p>
+  ${u.dernieres.length ? `<p style="font-size:13px;margin-top:4px">Dernières demandes :</p><div class="hlist">${u.dernieres.map(r => `<div class="hrow"><div><b>${esc(r.demande || '')}</b><small>${esc(when(r.at))} · ${esc(r.qui || '')} · ${r.fait ? 'appliquée' : 'rien changé'}</small></div><span style="font-weight:600;white-space:nowrap">${eur(r.eur)}</span></div>`).join('')}</div>` : '<p>Aucune demande pour l’instant.</p>'}`;
 });
 
 /* ---------- formulaire public ---------- */

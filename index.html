@@ -971,6 +971,30 @@ $('f').addEventListener('submit', e => {
 });
 $('copy').addEventListener('click', async e => { try { await navigator.clipboard.writeText($('txt').textContent); e.target.textContent = 'Copiée'; } catch (x) { e.target.textContent = 'Sélectionnez le texte pour le copier'; } });
 
+/* ---------- aperçu piloté par la démo (rien n'est enregistré) ---------- */
+const APERCU = /[?&]apercu\b/.test(location.search);
+if (APERCU) {
+  const st = document.createElement('style');
+  st.textContent = '#edFab,#openEd,.edbar{display:none!important}.flash{animation:flash 1.6s ease-out 1}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(47,91,255,.9);background:rgba(47,91,255,.18)}100%{box-shadow:0 0 0 22px rgba(47,91,255,0);background:transparent}}';
+  document.head.appendChild(st);
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || !e.data) return;
+    const m = e.data;
+    if (m.type === 'apercu-get') { e.source.postMessage({ type: 'apercu-etat', site: siteNow() }, location.origin); return; }
+    if (m.type !== 'apercu-site') return;
+    const before = siteNow();
+    applyAsk(m.site); render();
+    const after = siteNow();
+    let el = null;
+    for (const k in after.t) if (after.t[k] !== before.t[k]) { el = document.querySelector(`[data-k="${k}"]`); if (el) break; }
+    if (!el) for (const k in after.L) if (JSON.stringify(after.L[k]) !== JSON.stringify(before.L[k])) { el = k === 'logos' ? document.querySelector('[data-s=clients]') : document.getElementById('L_' + k); if (el) break; }
+    if (!el && JSON.stringify(after.order) !== JSON.stringify(before.order)) { const i = after.order.findIndex((n, j) => n !== before.order[j]); el = document.querySelector(`[data-s="${after.order[i]}"]`); }
+    if (!el) for (const k of SECS) if (!!after.hide[k] !== !!before.hide[k]) { el = document.querySelector(`[data-s="${k}"]`); if (after.hide[k]) { const n = SECS.indexOf(k); el = document.querySelector(`[data-s="${SECS[n + 1] || SECS[n - 1]}"]`); } break; }
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  });
+  window.addEventListener('load', () => { try { parent.postMessage({ type: 'apercu-pret' }, location.origin); } catch (x) {} });
+}
+
 /* ---------- chargement ---------- */
 function apply(d) {
   if (!d || typeof d !== 'object') return;

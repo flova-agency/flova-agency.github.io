@@ -90,21 +90,32 @@ Deno.serve(async (req) => {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, anon, {
       global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
     });
-    const { data: ok } = await sb.rpc("flova_is_editor");
-    if (!ok) return json({ error: "Cette adresse n'a pas l'accès à la modification du site." }, 403);
-
-    const { instruction, site } = await req.json();
+    const body = await req.json();
+    const { instruction, site } = body;
+    const demo = body.demo === true;
+    if (!demo) {
+      const { data: ok } = await sb.rpc("flova_is_editor");
+      if (!ok) return json({ error: "Cette adresse n'a pas l'accès à la modification du site." }, 403);
+    }
     if (typeof instruction !== "string" || !instruction.trim()) return json({ error: "Demande vide." }, 400);
-    if (instruction.length > 2000) return json({ error: "Demande trop longue." }, 400);
+    if (instruction.length > (demo ? 400 : 2000)) return json({ error: "Demande trop longue." }, 400);
     if (!site || typeof site !== "object") return json({ error: "Contenu manquant." }, 400);
+    if (demo && JSON.stringify(site).length > 80000) return json({ error: "Contenu trop long." }, 400);
 
     const db = admin();
-    const fx = await setting(db, "usd_eur", 0.92), budget = await setting(db, "ai_budget_eur", 5);
+    const fx = await setting(db, "usd_eur", 0.92);
+    const budget = demo ? await setting(db, "demo_budget_eur", 2) : await setting(db, "ai_budget_eur", 5);
     const m0 = new Date(); m0.setUTCDate(1); m0.setUTCHours(0, 0, 0, 0);
-    const { data: used } = await db.from("flova_ai_usage").select("cost_usd").gte("at", m0.toISOString());
+    let q = db.from("flova_ai_usage").select("cost_usd").gte("at", m0.toISOString());
+    q = demo ? q.eq("author", "démo") : q.neq("author", "démo");
+    const { data: used } = await q;
     const spent = (used || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0) * fx;
-    if (budget > 0 && spent >= budget) return json({ error: `Le budget IA du mois (${budget} €) est atteint. Il se recharge le 1er du mois prochain, ou Uxlab peut le relever.` }, 402);
-    const { data: who } = await sb.auth.getUser();
+    if (budget > 0 && spent >= budget) return json({ error: demo ? "La démo a atteint sa limite du mois." : `Le budget IA du mois (${budget} €) est atteint. Il se recharge le 1er du mois prochain, ou Uxlab peut le relever.` }, 402);
+    if (demo) {
+      const { count } = await db.from("flova_ai_usage").select("id", { count: "exact", head: true }).eq("author", "démo").gte("at", new Date(Date.now() - 6e5).toISOString());
+      if ((count || 0) >= 40) return json({ error: "Beaucoup de demandes en ce moment sur la démo. Réessaie dans quelques minutes." }, 429);
+    }
+    const who = demo ? null : (await sb.auth.getUser()).data;
 
     const key = Deno.env.get("DEEPSEEK_API_KEY");
     if (!key) return json({ error: "L'assistant n'est pas encore activé (clé manquante)." }, 503);
@@ -128,7 +139,7 @@ Deno.serve(async (req) => {
     const u = out?.usage || {};
     const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
     const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
-    const logUse = (changed: boolean) => db.from("flova_ai_usage").insert({ author: who?.user?.email || null, model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
+    const logUse = (changed: boolean) => db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
     const text: string = out?.choices?.[0]?.message?.content || "";
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) { await logUse(false); return json({ error: "Réponse incomprise, reformule ta demande." }, 502); }

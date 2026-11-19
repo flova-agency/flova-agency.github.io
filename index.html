@@ -265,6 +265,7 @@ body.ed .edbar{display:flex}
 .hrow small{display:block;color:#6b7188}
 .hrow button{font:600 13px Inter;background:#06070b;color:#fff;border:0;border-radius:9px;min-height:38px;padding:0 14px;cursor:pointer;flex:none}
 .hrow.cur{background:#f3f5fb}
+.lgf{display:grid;grid-template-columns:1fr;gap:14px;margin:0;padding:0;background:none;border-radius:0;box-shadow:none}
 .mbox .x{justify-self:end;background:none;border:0;font-size:15px;color:#4e5468;cursor:pointer;min-height:36px}
 .mmsg{font-size:14px;min-height:20px;margin:0}
 .edlink{background:none;border:0;color:var(--mute);font:14px Inter;cursor:pointer;padding:0;text-decoration:underline}
@@ -411,12 +412,14 @@ body.ed .edbar{display:flex}
   <button class="x" type="button" data-close>Fermer</button>
   <h3>Modifier le site</h3>
   <p id="lgInfo">Espace réservé. Entrez votre adresse e-mail autorisée : vous recevrez un mail avec un bouton et un code.</p>
-  <div class="f"><label for="lgMail">Adresse e-mail</label><input id="lgMail" type="email" autocomplete="email"></div>
-  <button class="btn" type="button" id="lgSend">Recevoir mon accès</button>
-  <div id="lgStep2" style="display:grid;gap:10px">
-    <div class="f"><label for="lgCode">Code à 8 chiffres reçu par e-mail</label><input id="lgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div>
-    <button class="btn" type="button" id="lgVerify">Valider le code</button>
-  </div>
+  <form id="lgForm1" class="lgf" action="#" method="post" novalidate>
+    <div class="f"><label for="lgMail">Adresse e-mail</label><input id="lgMail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+    <button class="btn" type="submit" id="lgSend">Recevoir mon accès</button>
+  </form>
+  <form id="lgStep2" class="lgf" action="#" method="post" novalidate>
+    <div class="f"><label for="lgCode">Code à 8 chiffres reçu par e-mail</label><input id="lgCode" name="code" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="12"></div>
+    <button class="btn" type="submit" id="lgVerify">Valider le code</button>
+  </form>
   <p class="mmsg" id="lgMsg" role="status"></p>
 </div></div>
 
@@ -663,6 +666,7 @@ $('openEd').hidden = true;
 if ((location.hash === '#modifier' || /[?&]modifier\b/.test(location.search)) && !/access_token=/.test(LINK0)) setTimeout(() => { if (!user) openLogin(); }, 1200);
 if (LINK_ERR) setTimeout(() => { if (!user) { openLogin(); msg('Ce bouton de connexion a expiré ou a déjà servi. Tapez le code du mail le plus récent, ou demandez un nouvel accès.', true); } history.replaceState(null, '', location.pathname + '#modifier'); }, 1300);
 window.addEventListener('hashchange', () => { if (location.hash === '#modifier') openLogin(); });
+document.querySelectorAll('.lgf').forEach(f => f.addEventListener('submit', e => e.preventDefault()));
 $('lgSend').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(em)) return msg('Adresse e-mail non valide.', true);

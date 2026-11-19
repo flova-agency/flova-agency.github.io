@@ -229,7 +229,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     let final = '';
     rec.onresult = e => { let t = ''; for (const r of e.results) { t += r[0].transcript; if (r.isFinal) final = t; } txt.value = t; setBtn(); };
     rec.onend = () => { go.classList.remove('rec'); rec = null; const v = (final || txt.value).trim(); if (v) ask(v); else setBtn(); };
-    rec.onerror = () => { go.classList.remove('rec'); rec = null; txt.focus(); };
+    rec.onerror = ev => { go.classList.remove('rec'); rec = null; txt.focus(); bubble(ev && ev.error === 'not-allowed' ? 'Je n’ai pas accès au micro 🎤 Autorise-le dans ton navigateur, ou touche le micro de ton clavier pour dicter.' : 'Je n’ai rien entendu 🎤 Réessaie, ou écris ta demande.', 'in'); };
     go.classList.add('rec'); rec.start();
   }
   $('comp').addEventListener('submit', e => { e.preventDefault(); const v = txt.value.trim(); if (v) ask(v); else listen(); });

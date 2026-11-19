@@ -370,9 +370,10 @@ body.ed .edbar{display:flex}
     <div><h4>Suivre</h4><a id="a_tt2" href="https://www.tiktok.com/@fukay1070">TikTok</a><a id="a_ig2" href="https://www.instagram.com/fukay1070/">Instagram</a><a class="mailto" style="overflow-wrap:anywhere"></a><span class="m" style="display:block;padding:3px 0" data-k="ft_city">Bruxelles · Paris</span></div>
   </div>
   <div class="mark d" aria-hidden="true">FLOVA</div>
-  <div class="legal"><span><span data-k="ft_legal">© 2026 Flova Agency. Visuels à titre illustratif.</span> · <button class="edlink" id="openEd" type="button">Modifier le site</button></span><span>build by Uxlab.ai</span></div>
+  <div class="legal"><span><span data-k="ft_legal">© 2026 Flova Agency. Visuels à titre illustratif.</span><button class="edlink" id="openEd" type="button" hidden>Modifier le site</button></span><span>build by Uxlab.ai</span></div>
 </footer>
 
+<button type="button" id="edFab" hidden style="position:fixed;right:16px;bottom:16px;z-index:90;font:600 14px Inter;background:#2f5bff;color:#fff;border:0;border-radius:999px;min-height:46px;padding:0 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);cursor:pointer">Modifier le site</button>
 <div class="edbar" id="edbar">
   <span id="edstate">Mode modification</span>
   <button type="button" id="edLinks">Liens et e-mail</button>
@@ -384,7 +385,7 @@ body.ed .edbar{display:flex}
 <div class="modal" id="mLogin"><div class="mbox">
   <button class="x" type="button" data-close>Fermer</button>
   <h3>Modifier le site</h3>
-  <p id="lgInfo">Entrez votre adresse e-mail. Vous recevrez un lien de connexion et un code.</p>
+  <p id="lgInfo">Espace réservé. Entrez votre adresse e-mail autorisée : vous recevrez un lien de connexion.</p>
   <div class="f"><label for="lgMail">Adresse e-mail</label><input id="lgMail" type="email" autocomplete="email"></div>
   <button class="btn" type="button" id="lgSend">Recevoir mon accès</button>
   <div id="lgStep2" style="display:none;gap:10px">
@@ -601,7 +602,7 @@ const msg = (t, bad) => { $('lgMsg').textContent = t; $('lgMsg').style.color = b
 function openLogin() { if (user) return enterEd(); $('mLogin').classList.add('on'); $('lgMail').focus(); }
 $('openEd').addEventListener('click', openLogin);
 const EDITABLE_HOST = location.protocol === 'file:' || /(^|\.)github\.io$/.test(location.hostname) || /flova/.test(location.hostname);
-if (!EDITABLE_HOST) $('openEd').style.display = 'none';
+$('openEd').hidden = true;
 if (location.hash === '#modifier') setTimeout(() => { if (!user) openLogin(); }, 900);
 $('lgSend').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase();
@@ -622,14 +623,15 @@ $('lgVerify').addEventListener('click', async () => {
 });
 async function onSession(s, ev) {
   user = s?.user || null;
-  if (!user) { if (ED) leaveEd(); return; }
+  if (!user) { $('edFab').hidden = true; if (ED) leaveEd(); return; }
   const { data: ok } = await sb.rpc('flova_is_editor');
   if (!ok) { msg('Cette adresse n’a pas l’accès à la modification du site.', true); await sb.auth.signOut(); user = null; return; }
   $('mLogin').classList.remove('on');
-  if (ev === 'SIGNED_IN' || location.hash === '#modifier') enterEd();
+  if (ev === 'SIGNED_IN' || location.hash === '#modifier') enterEd(); else $('edFab').hidden = false;
 }
-function enterEd() { ED = true; document.body.classList.add('ed'); render(); state('Mode modification : cliquez sur un texte pour le changer. Tout est enregistré et publié aussitôt.'); }
-function leaveEd() { ED = false; document.body.classList.remove('ed'); render(); }
+$('edFab').addEventListener('click', () => enterEd());
+function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state('Mode modification : cliquez sur un texte pour le changer. Tout est enregistré et publié aussitôt.'); }
+function leaveEd() { $('edFab').hidden = !user; ED = false; document.body.classList.remove('ed'); render(); }
 $('edQuit').addEventListener('click', async () => { clearTimeout(saveT); await save(); leaveEd(); });
 $('edOut').addEventListener('click', async () => { clearTimeout(saveT); await save(); await sb.auth.signOut(); leaveEd(); });
 $('edUndo').addEventListener('click', async () => {

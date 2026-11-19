@@ -50,7 +50,7 @@ small{display:block;margin-top:40px;color:#5d6378;font-size:12px}
     if (j.already) { $('h').textContent = 'Déjà traitée'; $('m').innerHTML = 'Cette demande est : <b>' + j.label + '</b>.'; }
     else if (j.status === 'approuvee') { $('h').innerHTML = '<span class="ok">Approuvée ✓</span>'; $('m').textContent = 'Elle part en fabrication. Furkan est prévenu, et il le sera encore quand ce sera en ligne.'; }
     else { $('h').innerHTML = '<span class="no">Refusée</span>'; $('m').textContent = 'Furkan est prévenu. Il peut te répondre directement par e-mail.'; }
-  } catch (e) { $('h').textContent = 'Pas pu traiter le lien'; $('m').textContent = e.message + '. Réessaie dans un instant.'; }
+  } catch (e) { $('h').textContent = 'Pas pu traiter le lien'; $('m').textContent = e.message.replace(/\.$/, '') + '. Ouvre le bouton du dernier e-mail reçu.'; }
 })();
 </script>
 </body>

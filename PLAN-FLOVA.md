@@ -16,12 +16,14 @@ Promesse faite à Fukay le 19/11 : une mise à jour par jour pendant 7 jours, pu
 
 ## Vers la version évoluée (J+1 à J+3)
 
+- [ ] **6b. Connexion par Google (et Apple si possible) au lieu du code mail** — Demande de Karim du 19/11 à 23 h 30, à faire avant l'étape 7. Fait si : un toucher sur « Continuer avec Google » ouvre la session sur iPhone, petit iPhone et ordinateur, une adresse non autorisée est refusée, et le code mail reste en secours. Bloquant : identifiants OAuth Google créés sur le compte de Karim ; pour Apple, un compte Apple Developer payant est nécessaire.
+
 - [ ] **7. Validation de l'IA par Karim, puis activation pour Fukay** — Fait si : Karim a dit « validé », les boutons IA sont visibles sans `?ia=1`, le test iPhone est passé et la régression est complète. Bloquant : feu vert de Karim.
 - [ ] **8. Banc de régression élargi à 25 cas [usine]** — Couvre : traduction complète sans reste de français, portée des chiffres, demandes vagues, design hors champ, ordre et masquage des sections, ajout et retrait de client, accroche, idées applicables, photo envoyée, refus poli. Fait si : 25/25 deux fois de suite sur la version en ligne.
 - [ ] **9. Audit de sécurité de la base** — Fait si : en anonyme, aucune lecture ni écriture possible sur flova_content, flova_history, flova_requests, flova_settings et flova_ai_usage en dehors des fonctions prévues ; une adresse non autorisée ne peut rien modifier ; aucun secret dans le dépôt ; les limites de débit sont vérifiées. Preuve : script de test d'accès versionné dans tests/.
   - 19/11, 23 h 3x : tests/securite_anonyme.sh donne 14/14 (lecture, écriture, modification du site et fonctions refusées en anonyme) ; aucun secret dans le dépôt ; fonction appelée sans clé = 401. Reste à faire : tester un compte connecté mais non autorisé, et les limites de débit.
-- [ ] **10. Photos par l'assistant sur le vrai site [usine]** — Fait si : depuis ✦ Demander sur iPhone, on envoie une photo et on dit « mets-la à la place de… », la photo est redimensionnée, stockée et en ligne, et « Revenir comme avant » fonctionne.
-- [ ] **11. ✦ Demander en mode conversation sur le vrai site [usine]** — Même expérience que la démo : fil de messages, choix à toucher, avant/après. Fait si : parcours iPhone capturé et validé par Karim.
+- [x] **10. Photos par l'assistant sur le vrai site** — Fait si : depuis ✦ Demander sur iPhone, on envoie une photo et on dit « mets-la à la place de… », la photo est redimensionnée, stockée et en ligne, et « Revenir comme avant » fonctionne. Preuve : flovaagency.com/studio, envoi de photo testé sur iPhone 15 le 19/11 à 23 h 4x (stockage simulé pour le test, à confirmer en réel par Karim).
+- [x] **11. ✦ Demander en mode conversation sur le vrai site** — Même expérience que la démo : fil de messages, choix à toucher, avant/après. Fait si : parcours iPhone capturé et validé par Karim. Preuve : page /studio, tests 19/19 sur iPhone 15, iPhone SE et ordinateur le 19/11 (connexion, modification enregistrée, annuler enregistré, hors champ avec envoi à Uxlab, photo). Reste : validation de Karim.
 
 ## Liaison usine (J+2 à J+4)
 

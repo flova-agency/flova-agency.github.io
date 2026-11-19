@@ -882,7 +882,8 @@ function applyAsk(site) {
   const l = site.links || {}; C.links = { email: l.email || DEF.links.email, tiktok: l.tiktok || DEF.links.tiktok, instagram: l.instagram || DEF.links.instagram, seoTitle: l.seoTitle || '', seoDesc: l.seoDesc || '' };
 }
 const askMsg = (t, bad) => { $('askMsg').innerHTML = t; $('askMsg').style.color = bad ? '#c0262d' : '#4e5468'; };
-$('edAsk').addEventListener('click', () => { askMsg(''); $('askRes').classList.remove('on'); $('mAsk').classList.add('on'); setTimeout(() => $('askTxt').focus(), 50); });
+$('edAsk').addEventListener('click', async () => { clearTimeout(saveT); if (dirty) await save(); location.href = '/studio'; });
+$('edAskOld') && $('edAskOld').addEventListener('click', () => { askMsg(''); $('askRes').classList.remove('on'); $('mAsk').classList.add('on'); setTimeout(() => $('askTxt').focus(), 50); });
 $('askChips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $('askTxt').value = b.textContent; $('askTxt').focus(); });
 $('askTxt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('askGo').click(); } });
 $('askGo').addEventListener('click', async () => {
@@ -991,6 +992,23 @@ if (APERCU) {
     if (e.origin !== location.origin || !e.data) return;
     const m = e.data;
     if (m.type === 'apercu-get') { e.source.postMessage({ type: 'apercu-etat', site: siteNow() }, location.origin); return; }
+    if (m.type === 'apercu-session') { sb && sb.auth.getSession().then(({ data }) => { user = data.session?.user || null; }); return; }
+    if (m.type === 'apercu-enregistrer') {
+      (async () => {
+        try {
+          if (!sb) throw new Error('connexion indisponible');
+          if (!user) user = (await sb.auth.getSession()).data.session?.user || null;
+          if (!user) throw new Error('session expirée, reconnecte-toi');
+          applyAsk(m.site); render();
+          const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], L: C.L, v: 1 };
+          const { error } = rowExists ? await sb.from('flova_content').update({ data }).eq('id', 'site') : await sb.from('flova_content').insert({ id: 'site', data });
+          if (error) throw error;
+          rowExists = true;
+          e.source.postMessage({ type: 'apercu-enregistre', ok: true }, location.origin);
+        } catch (x) { e.source.postMessage({ type: 'apercu-enregistre', ok: false, error: x.message || String(x) }, location.origin); }
+      })();
+      return;
+    }
     if (m.type !== 'apercu-site') return;
     const before = siteNow();
     applyAsk(m.site); render();
@@ -1019,6 +1037,7 @@ render();
 if (sb && EDITABLE_HOST) {
   sb.from('flova_content').select('data').eq('id', 'site').maybeSingle().then(({ data, error }) => {
     if (!error && data) { rowExists = true; apply(data.data); render(); }
+    if (APERCU) try { parent.postMessage({ type: 'apercu-charge' }, location.origin); } catch (x) {}
   });
   /* jamais d'appel Supabase directement dans ce rappel : on le reporte, sinon la connexion peut se bloquer */
   sb.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION' || ev === 'SIGNED_OUT') setTimeout(() => onSession(s, ev), 0); });

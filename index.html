@@ -604,6 +604,7 @@ $('openEd').addEventListener('click', openLogin);
 const EDITABLE_HOST = location.protocol === 'file:' || /(^|\.)github\.io$/.test(location.hostname) || /flova/.test(location.hostname);
 $('openEd').hidden = true;
 if (location.hash === '#modifier') setTimeout(() => { if (!user) openLogin(); }, 900);
+window.addEventListener('hashchange', () => { if (location.hash === '#modifier') openLogin(); });
 $('lgSend').addEventListener('click', async () => {
   const em = $('lgMail').value.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(em)) return msg('Adresse e-mail non valide.', true);

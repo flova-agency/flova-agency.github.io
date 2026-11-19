@@ -689,10 +689,16 @@ $('lgVerify').addEventListener('click', async () => {
   $('lgVerify').disabled = false;
   if (error) { JUST_LOGGED = false; return msg(/expired|invalid/i.test(error.message) ? 'Ce code a expiré ou a déjà servi. Utilisez le code du mail le plus récent, ou demandez un nouvel accès.' : 'Connexion impossible : ' + error.message, true); }
 });
+let sessionBusy = null;
 async function onSession(s, ev) {
+  if (sessionBusy) await sessionBusy.catch(() => {});
+  sessionBusy = onSessionRun(s, ev); return sessionBusy;
+}
+async function onSessionRun(s, ev) {
   user = s?.user || null;
   if (!user) { $('edFab').hidden = true; if (ED) leaveEd(); return; }
-  const { data: ok } = await sb.rpc('flova_is_editor');
+  const { data: ok, error: rpcErr } = await sb.rpc('flova_is_editor');
+  if (rpcErr) { $('edFab').hidden = false; msg('Vérification momentanément impossible. Touchez « Modifier le site » dans un instant.', true); return; }
   if (!ok) { msg('Cette adresse n’a pas l’accès à la modification du site.', true); await sb.auth.signOut(); user = null; return; }
   $('mLogin').classList.remove('on');
   if (!ED && (JUST_LOGGED || WANT_ED || location.hash === '#modifier')) { JUST_LOGGED = false; enterEd(); } else if (!ED) $('edFab').hidden = false;
@@ -800,7 +806,8 @@ if (sb && EDITABLE_HOST) {
   sb.from('flova_content').select('data').eq('id', 'site').maybeSingle().then(({ data, error }) => {
     if (!error && data) { rowExists = true; apply(data.data); render(); }
   });
-  sb.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION' || ev === 'SIGNED_OUT') onSession(s, ev); });
+  /* jamais d'appel Supabase directement dans ce rappel : on le reporte, sinon la connexion peut se bloquer */
+  sb.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION' || ev === 'SIGNED_OUT') setTimeout(() => onSession(s, ev), 0); });
 }
 }
 </script>

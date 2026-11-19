@@ -4,7 +4,7 @@ name: Déployer les fonctions Supabase
 on:
   push:
     branches: [main]
-    paths: ["supabase/functions/**"]
+    paths: ["supabase/functions/**", ".github/workflows/deploy-functions.yml"]
   workflow_dispatch:
 jobs:
   deploy:
@@ -22,5 +22,5 @@ jobs:
         run: |
           for f in supabase/functions/*/; do
             n=$(basename "$f")
-            supabase functions deploy "$n" --project-ref nhukbglercraslszazan --use-api
+            supabase functions deploy "$n" --project-ref nhukbglercraslszazan --use-api --yes
           done

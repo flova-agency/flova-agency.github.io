@@ -14,7 +14,7 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 const SYSTEM = `Tu es l'assistant du site vitrine de Flova Agency (agence de vidéos courtes, Bruxelles et Paris).
-Tu reçois le contenu actuel du site en JSON et une demande écrite par le propriétaire. Tu renvoies le contenu complet modifié.
+Tu reçois le contenu actuel du site en JSON et une demande écrite par le propriétaire. Tu renvoies uniquement ce qui change.
 
 Structure du contenu :
 - "t" : textes fixes du site, clé -> texte (titres, paragraphes, boutons). Tu modifies la valeur, jamais les clés.
@@ -34,22 +34,39 @@ Règles :
 5. Écris en français soigné, dans le style du site : phrases courtes, chiffres au format « 1,2 M », « 27,8 K », « +430 ».
 6. Si la demande touche au design (couleurs, polices, mise en page) ou à quelque chose que ce contenu ne permet pas, ne change rien et explique-le simplement dans "resume".
 
-Réponds uniquement avec un objet JSON : {"site": {t, L, hide, order, links}, "resume": "une phrase courte, en tutoyant, qui dit ce que tu as fait"}.`;
+Réponds uniquement avec un objet JSON de cette forme :
+{"changes": {
+   "t": {seulement les clés de textes modifiées},
+   "L": {seulement les listes modifiées, chacune donnée en entier},
+   "hide": {seulement les sections dont l'état change : true pour masquer, false pour afficher},
+   "order": [la liste complète des sections dans le nouvel ordre, seulement si l'ordre change],
+   "links": {seulement les liens modifiés}
+ },
+ "resume": "une phrase courte, en tutoyant, qui dit ce que tu as fait"}
+Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
 
-function clean(site: any, prev: any) {
-  const out: any = { t: {}, L: {}, hide: {}, order: [], links: {} };
-  const t = site?.t && typeof site.t === "object" ? site.t : {};
-  for (const k of Object.keys(prev.t || {})) out.t[k] = typeof t[k] === "string" ? t[k] : prev.t[k];
-  for (const k of LISTS) out.L[k] = Array.isArray(site?.L?.[k]) ? site.L[k] : prev.L?.[k] || [];
-  for (const k of SECTIONS) if (site?.hide?.[k] === true) out.hide[k] = true;
-  const order = Array.isArray(site?.order) ? site.order.filter((s: string) => SECTIONS.includes(s)) : [];
-  out.order = [...new Set([...order, ...SECTIONS])];
-  const links = site?.links && typeof site.links === "object" ? site.links : {};
-  for (const k of ["email", "tiktok", "instagram", "seoTitle", "seoDesc"]) {
-    const v = typeof links[k] === "string" ? links[k] : prev.links?.[k];
-    if (v != null) out.links[k] = v;
+function clean(ch: any, prev: any) {
+  const out: any = { t: { ...(prev.t || {}) }, L: {}, hide: {}, order: [], links: { ...(prev.links || {}) } };
+  const n = { t: 0, L: 0, hide: 0, order: 0, links: 0 };
+  const t = ch?.t && typeof ch.t === "object" ? ch.t : {};
+  for (const k of Object.keys(t)) if (k in out.t && typeof t[k] === "string" && t[k] !== out.t[k]) { out.t[k] = t[k]; n.t++; }
+  for (const k of LISTS) {
+    const v = ch?.L?.[k];
+    if (Array.isArray(v) && v.every((x: unknown) => x && typeof x === "object")) { out.L[k] = v; n.L++; } else out.L[k] = prev.L?.[k] || [];
   }
-  return out;
+  for (const k of SECTIONS) {
+    const v = ch?.hide?.[k], was = prev.hide?.[k] === true;
+    const now = typeof v === "boolean" ? v : was;
+    if (now) out.hide[k] = true;
+    if (now !== was) n.hide++;
+  }
+  const before = Array.isArray(prev.order) && prev.order.length ? prev.order : SECTIONS;
+  const order = Array.isArray(ch?.order) ? ch.order.filter((s: string) => SECTIONS.includes(s)) : [];
+  out.order = [...new Set([...(order.length ? order : before), ...SECTIONS])];
+  if (out.order.join() !== [...new Set([...before, ...SECTIONS])].join()) n.order++;
+  const links = ch?.links && typeof ch.links === "object" ? ch.links : {};
+  for (const k of ["email", "tiktok", "instagram", "seoTitle", "seoDesc"]) if (typeof links[k] === "string" && links[k] !== out.links[k]) { out.links[k] = links[k]; n.links++; }
+  return { site: out, count: n.t + n.L + n.hide + n.order + n.links };
 }
 
 Deno.serve(async (req) => {
@@ -78,6 +95,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: Deno.env.get("FLOVA_MODEL") || "deepseek-flash",
         temperature: 0.2,
+        max_tokens: 8000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
@@ -91,7 +109,8 @@ Deno.serve(async (req) => {
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return json({ error: "Réponse incomprise, reformule ta demande." }, 502);
     const parsed = JSON.parse(m[0]);
-    return json({ site: clean(parsed.site, site), resume: String(parsed.resume || "C'est fait.").slice(0, 400) });
+    const { site: next, count } = clean(parsed.changes || {}, site);
+    return json({ site: next, count, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 400) });
   } catch (e) {
     return json({ error: "Erreur de l'assistant : " + (e instanceof Error ? e.message : String(e)) }, 500);
   }

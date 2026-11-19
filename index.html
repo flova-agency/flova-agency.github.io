@@ -269,6 +269,7 @@ body.ed .edbar{display:flex}
 .chips button{font:500 13px Inter;background:#f1f3f9;color:#262b3d;border:0;border-radius:999px;padding:8px 12px;cursor:pointer;text-align:left}
 .askres{background:#f3f5fb;border-radius:14px;padding:12px 14px;font-size:15px;color:#06070b;display:none}
 .askres.on{display:block}
+.askres button.ux{background:#06070b;color:#fff;border-color:#06070b;margin-left:0}
 .askres button{margin-top:10px;font:600 13px Inter;background:#fff;color:#06070b;border:1px solid #d9dce6;border-radius:9px;min-height:38px;padding:0 12px;cursor:pointer}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #c5cbe0;border-top-color:#2f5bff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:8px}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -423,6 +424,7 @@ body.ed .edbar{display:flex}
     <button type="button" id="edHist">Historique</button>
     <button type="button" id="edLinks">Réglages</button>
     <button type="button" id="edAcc">Accès</button>
+    <button type="button" id="edReq">Demandes</button>
     <button type="button" id="edOut">Se déconnecter</button>
   </div>
   <button type="button" id="edMoreB">Plus</button>
@@ -479,7 +481,7 @@ body.ed .edbar{display:flex}
   <textarea id="askTxt" rows="3" maxlength="2000" placeholder="Ex. : ajoute le client Boulangerie Saïd dans la liste des clients"></textarea>
   <button class="btn" type="button" id="askGo">Envoyer la demande</button>
   <p class="mmsg" id="askMsg" role="status"></p>
-  <div class="askres" id="askRes"><div id="askSum"></div><button type="button" id="askBack">Revenir comme avant</button></div>
+  <div class="askres" id="askRes"><div id="askSum"></div><button type="button" id="askBack">Revenir comme avant</button><button type="button" id="askUx" class="ux" hidden>Envoyer à Uxlab</button><p id="askUxMsg" style="margin-top:10px;font-size:14px"></p></div>
   <p style="font-size:13px;margin-top:4px">Exemples :</p>
   <div class="chips" id="askChips">
     <button type="button">Ajoute un client : Boulangerie Saïd</button>
@@ -487,6 +489,17 @@ body.ed .edbar{display:flex}
     <button type="button">Mets la section Contact juste après les Travaux</button>
     <button type="button">Rends le grand titre plus percutant</button>
   </div>
+</div></div>
+
+<div class="modal" id="mReq"><div class="mbox" style="width:min(560px,100%)">
+  <button class="x" type="button" data-close>Fermer</button>
+  <h3>Demander à Uxlab</h3>
+  <p>Pour ce que l’assistant ne sait pas faire : une nouvelle section, un changement de design, une nouvelle fonction… Ta demande est envoyée, approuvée en un clic, puis fabriquée et mise en ligne. Tu es prévenu par e-mail à chaque étape.</p>
+  <textarea id="reqTxt" rows="3" maxlength="2000" style="font:16px/1.45 Inter;border:1.5px solid #d9dce6;border-radius:14px;padding:12px 14px;width:100%;box-sizing:border-box" placeholder="Ex. : ajoute une galerie de mes vidéos TikTok sous les Travaux"></textarea>
+  <button class="btn" type="button" id="reqGo">Envoyer à Uxlab</button>
+  <p class="mmsg" id="reqMsg" role="status"></p>
+  <p style="font-size:13px;margin-top:6px">Mes demandes :</p>
+  <div id="rList" class="hlist"></div>
 </div></div>
 
 <input type="file" id="pick" accept="image/*" hidden>
@@ -869,10 +882,10 @@ $('askGo').addEventListener('click', async () => {
     res = data;
   } catch (x) { $('askGo').disabled = false; return askMsg(esc(x.message || String(x)), true); }
   $('askGo').disabled = false;
-  if (!res?.site || !res.count) { askMsg(''); $('askSum').textContent = res?.resume || 'Rien n’a été changé.'; $('askBack').hidden = true; $('askRes').classList.add('on'); $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  if (!res?.site || !res.count) { askMsg(''); $('askSum').textContent = res?.resume || 'Rien n’a été changé.'; $('askBack').hidden = true; lastAsk = { instruction, reply: res?.resume || '' }; $('askUx').hidden = false; $('askUxMsg').textContent = 'Tu veux quand même ce changement ? Envoie la demande à Uxlab : elle sera approuvée, fabriquée puis mise en ligne.'; $('askUxMsg').style.color = '#4e5468'; $('askRes').classList.add('on'); $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   try { applyAsk(res.site); render(); }
   catch (x) { Object.assign(C, before); render(); return askMsg('La modification n’a pas pu s’afficher, rien n’a été changé. Reformule ta demande.', true); }
-  askBefore = before; undoList = null;
+  askBefore = before; undoList = null; $('askUx').hidden = true; $('askUxMsg').textContent = '';
   await save();
   askMsg(''); $('askSum').textContent = '✓ ' + res.resume + ' C’est en ligne.'; $('askBack').hidden = false; $('askRes').classList.add('on');
   $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -882,6 +895,37 @@ $('askBack').addEventListener('click', async () => {
   if (!askBefore) return;
   Object.assign(C, clone(askBefore)); askBefore = null; render(); await save();
   $('askSum').textContent = 'C’est revenu comme avant ✓'; $('askBack').hidden = true;
+});
+
+/* ---------- demandes à Uxlab (ce que l'assistant ne sait pas faire) ---------- */
+const RSTATUS = { recue: 'Envoyée, en attente d’approbation', approuvee: 'Approuvée, en préparation', refusee: 'Pas retenue', en_cours: 'En fabrication', en_ligne: 'En ligne ✓' };
+async function sendReq(instruction, reply) {
+  const { data, error } = await sb.functions.invoke('flova-demande', { body: { action: 'send', instruction, reply: reply || '' } });
+  if (error) { let m = ''; try { m = (await error.context.json()).error; } catch (x) {} throw new Error(m || 'Envoi impossible pour le moment. Réessaie dans un instant.'); }
+  if (data && data.mailed === false) throw new Error('Demande enregistrée, mais l’e-mail n’est pas parti. Elle sera traitée quand même.');
+  return data;
+}
+async function loadReq() {
+  const { data, error } = await sb.rpc('flova_requests_list');
+  if (error) { $('rList').innerHTML = '<p>Liste indisponible.</p>'; return; }
+  $('rList').innerHTML = (data || []).length ? data.map(r => `<div class="hrow"><div><b>${esc(r.instruction.length > 90 ? r.instruction.slice(0, 90) + '…' : r.instruction)}</b><small>${esc(when(r.created_at))} · ${esc(RSTATUS[r.status] || r.status)}</small></div></div>`).join('') : '<p>Aucune demande pour l’instant.</p>';
+}
+const rmsg = (t, bad) => { $('reqMsg').textContent = t; $('reqMsg').style.color = bad ? '#c0262d' : '#1b7a43'; };
+$('edReq').addEventListener('click', () => { rmsg(''); $('mReq').classList.add('on'); $('rList').innerHTML = '<p>Chargement…</p>'; loadReq(); });
+$('reqGo').addEventListener('click', async () => {
+  const t = $('reqTxt').value.trim(); if (!t) return rmsg('Écris d’abord ta demande.', true);
+  $('reqGo').disabled = true; rmsg('Envoi…');
+  try { await sendReq(t); $('reqTxt').value = ''; rmsg('Envoyée ✓ Tu recevras un e-mail dès qu’elle sera approuvée.'); loadReq(); }
+  catch (x) { rmsg(x.message, true); }
+  $('reqGo').disabled = false;
+});
+let lastAsk = null;
+$('askUx').addEventListener('click', async () => {
+  if (!lastAsk) return;
+  $('askUx').disabled = true; $('askUxMsg').textContent = 'Envoi…'; $('askUxMsg').style.color = '#4e5468';
+  try { await sendReq(lastAsk.instruction, lastAsk.reply); $('askUx').hidden = true; $('askUxMsg').textContent = 'Envoyée à Uxlab ✓ Tu recevras un e-mail dès qu’elle sera approuvée.'; $('askUxMsg').style.color = '#1b7a43'; }
+  catch (x) { $('askUxMsg').textContent = x.message; $('askUxMsg').style.color = '#c0262d'; }
+  $('askUx').disabled = false;
 });
 
 /* ---------- formulaire public ---------- */

@@ -128,10 +128,7 @@ Deno.serve(async (req) => {
     const key = Deno.env.get("DEEPSEEK_API_KEY");
     if (!key) return json({ error: "L'assistant n'est pas encore activé (clé manquante)." }, 503);
 
-    const r = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
+    const payload = JSON.stringify({
         model: Deno.env.get("FLOVA_MODEL") || "deepseek-flash",
         temperature: 0.2,
         max_tokens: 16000,
@@ -140,24 +137,32 @@ Deno.serve(async (req) => {
           { role: "system", content: SYSTEM },
           { role: "user", content: `Contenu actuel :\n${JSON.stringify(site)}\n\nDemande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
         ],
-      }),
-    });
-    if (!r.ok) return json({ error: "L'assistant ne répond pas pour le moment (" + r.status + "). Réessaie dans un instant." }, 502);
-    const out = await r.json();
-    const u = out?.usage || {};
-    const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
-    const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
-    const logUse = (changed: boolean) => db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
-    const text: string = out?.choices?.[0]?.message?.content || "";
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) { await logUse(false); return json({ error: "Réponse incomprise, reformule ta demande." }, 502); }
-    const parsed = JSON.parse(m[0]);
+      });
+    const logUse = (out: any, changed: boolean) => {
+      const u = out?.usage || {};
+      const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
+      const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
+      return db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
+    };
+    // Deux essais : une réponse coupée ou mal formée est redemandée une fois, sans jamais montrer d'erreur technique.
+    let parsed: any = null, lastOut: any = null;
+    for (let essai = 0; essai < 2 && !parsed; essai++) {
+      const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: payload });
+      if (!r.ok) { if (essai === 1) return json({ error: "L'assistant ne répond pas pour le moment. Réessaie dans un instant." }, 502); continue; }
+      const out = await r.json().catch(() => null);
+      lastOut = out;
+      const text: string = out?.choices?.[0]?.message?.content || "";
+      const m = text.match(/\{[\s\S]*\}/);
+      try { if (m) parsed = JSON.parse(m[0]); } catch { parsed = null; }
+      if (!parsed || typeof parsed !== "object") { parsed = null; await logUse(out, false); console.error("réponse IA illisible, essai", essai + 1); }
+    }
+    if (!parsed) return json({ error: "Je n'ai pas bien compris. Reformule ta demande en une phrase simple." }, 502);
     const { site: next, count } = clean(parsed.changes || {}, site);
-    await logUse(count > 0);
+    await logUse(lastOut, count > 0);
     const type = count ? "fait" : (["question", "hors_champ", "conseil"].includes(parsed.type) ? parsed.type : "question");
     const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, 3).map((c: string) => c.trim().slice(0, 80));
     return json({ site: next, count, type, choix, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 500) });
   } catch (e) {
-    return json({ error: "Erreur de l'assistant : " + (e instanceof Error ? e.message : String(e)) }, 500);
+    console.error(e); return json({ error: "Petit souci technique. Réessaie dans un instant." }, 500);
   }
 });

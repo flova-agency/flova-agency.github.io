@@ -36,7 +36,7 @@ small{display:block;margin-top:40px;color:#5d6378;font-size:12px}
 <script>
 (async () => {
   const $ = id => document.getElementById(id);
-  const P = new URLSearchParams(location.search), id = P.get('id'), t = P.get('t'), d = P.get('d') === 'non' ? 'non' : 'ok';
+  const P = new URLSearchParams(location.search), id = P.get('id'), t = P.get('t'), d = ['non', 'auto', 'manuel'].includes(P.get('d')) ? P.get('d') : 'ok';
   const KEY = 'sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB';
   if (!id || !t) { $('h').textContent = 'Lien incomplet'; $('m').textContent = 'Ouvre le bouton directement depuis l’e-mail.'; return; }
   try {
@@ -47,8 +47,10 @@ small{display:block;margin-top:40px;color:#5d6378;font-size:12px}
     const j = await r.json();
     if (!r.ok || j.error) throw new Error(j.error || ('erreur ' + r.status));
     if (j.instruction) { $('q').textContent = j.instruction; $('q').hidden = false; }
-    if (j.already) { $('h').textContent = 'Déjà traitée'; $('m').innerHTML = 'Cette demande est : <b>' + j.label + '</b>.'; }
-    else if (j.status === 'approuvee') { $('h').innerHTML = '<span class="ok">Approuvée ✓</span>'; $('m').textContent = 'Elle part en fabrication. Furkan est prévenu, et il le sera encore quand ce sera en ligne.'; }
+    const modeTxt = j.mode === 'auto' ? ' L’approbation automatique est maintenant activée : les prochaines demandes partiront directement à l’usine. Chaque e-mail te permettra de revenir en arrière.' : '';
+    if (j.mode === 'manuel') { $('h').innerHTML = '<span class="ok">Approbation manuelle réactivée ✓</span>'; $('m').textContent = 'Les prochaines demandes attendront de nouveau ton clic.'; return; }
+    if (j.already) { $('h').textContent = 'Déjà traitée'; $('m').innerHTML = 'Cette demande est : <b>' + j.label + '</b>.' + modeTxt; }
+    else if (j.status === 'approuvee') { $('h').innerHTML = '<span class="ok">Approuvée ✓</span>'; $('m').textContent = 'Elle part en fabrication. Furkan est prévenu, et il le sera encore quand ce sera en ligne.' + modeTxt; }
     else { $('h').innerHTML = '<span class="no">Refusée</span>'; $('m').textContent = 'Furkan est prévenu. Il peut te répondre directement par e-mail.'; }
   } catch (e) { $('h').textContent = 'Pas pu traiter le lien'; $('m').textContent = e.message.replace(/\.$/, '') + '. Ouvre le bouton du dernier e-mail reçu.'; }
 })();

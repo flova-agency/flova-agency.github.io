@@ -10,6 +10,18 @@ const CORS = {
 const SECTIONS = ["hero", "clients", "manifeste", "expertises", "formats", "travaux", "methode", "fondateur", "secteurs", "offres", "contact"];
 const LISTS = ["tiles", "logos", "figs", "caps", "fmt", "cases", "steps", "sect", "plans", "addons"];
 
+// Prix DeepSeek deepseek-flash au tarif plein (heures de pointe), en dollars par million de jetons : estimation prudente.
+const PRICE = { hit: 0.006, miss: 0.3, out: 1.2 };
+function admin() {
+  let key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!key) { try { key = Object.values(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"))[0] as string; } catch { /* rien */ } }
+  return createClient(Deno.env.get("SUPABASE_URL")!, key, { auth: { persistSession: false } });
+}
+async function setting(db: any, k: string, d: number) {
+  const { data } = await db.from("flova_settings").select("value").eq("key", k).maybeSingle();
+  const v = Number(data?.value); return Number.isFinite(v) ? v : d;
+}
+
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
@@ -86,6 +98,14 @@ Deno.serve(async (req) => {
     if (instruction.length > 2000) return json({ error: "Demande trop longue." }, 400);
     if (!site || typeof site !== "object") return json({ error: "Contenu manquant." }, 400);
 
+    const db = admin();
+    const fx = await setting(db, "usd_eur", 0.92), budget = await setting(db, "ai_budget_eur", 5);
+    const m0 = new Date(); m0.setUTCDate(1); m0.setUTCHours(0, 0, 0, 0);
+    const { data: used } = await db.from("flova_ai_usage").select("cost_usd").gte("at", m0.toISOString());
+    const spent = (used || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0) * fx;
+    if (budget > 0 && spent >= budget) return json({ error: `Le budget IA du mois (${budget} €) est atteint. Il se recharge le 1er du mois prochain, ou Uxlab peut le relever.` }, 402);
+    const { data: who } = await sb.auth.getUser();
+
     const key = Deno.env.get("DEEPSEEK_API_KEY");
     if (!key) return json({ error: "L'assistant n'est pas encore activé (clé manquante)." }, 503);
 
@@ -105,11 +125,16 @@ Deno.serve(async (req) => {
     });
     if (!r.ok) return json({ error: "L'assistant ne répond pas pour le moment (" + r.status + "). Réessaie dans un instant." }, 502);
     const out = await r.json();
+    const u = out?.usage || {};
+    const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
+    const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
+    const logUse = (changed: boolean) => db.from("flova_ai_usage").insert({ author: who?.user?.email || null, model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
     const text: string = out?.choices?.[0]?.message?.content || "";
     const m = text.match(/\{[\s\S]*\}/);
-    if (!m) return json({ error: "Réponse incomprise, reformule ta demande." }, 502);
+    if (!m) { await logUse(false); return json({ error: "Réponse incomprise, reformule ta demande." }, 502); }
     const parsed = JSON.parse(m[0]);
     const { site: next, count } = clean(parsed.changes || {}, site);
+    await logUse(count > 0);
     return json({ site: next, count, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 400) });
   } catch (e) {
     return json({ error: "Erreur de l'assistant : " + (e instanceof Error ? e.message : String(e)) }, 500);

@@ -69,10 +69,20 @@ Deno.serve(async (req) => {
         .insert({ author, instruction, reply: String(body.reply || "").slice(0, 600) || null }).select("id,token").single();
       if (error) return json({ error: "Enregistrement impossible : " + error.message }, 500);
       const link = (d: string) => `${SITE}/approuver?id=${row.id}&t=${row.token}&d=${d}`;
+      const { data: aa } = await db.from("flova_settings").select("value").eq("key", "auto_approve").maybeSingle();
+      if (aa?.value === true) {
+        await db.from("flova_requests").update({ status: "approuvee", decided_at: new Date().toISOString(), note: "approuvée automatiquement" }).eq("id", row.id);
+        const m = await mail(OWNER, `Flova : demande de ${author.split("@")[0]} (partie à l'usine)`, page("Nouvelle demande, approuvée automatiquement",
+          `<p><b>${esc(author)}</b> demande :</p>${quote(instruction)}<p>L'approbation automatique est activée : la demande est partie directement à l'usine.</p>`,
+          [{ href: link("manuel"), label: "Revenir à l'approbation manuelle", color: "#6b7188" }]));
+        await mail(author, "Ta demande est approuvée", page("Demande approuvée ✓", quote(instruction) + "<p>Elle part en fabrication. Tu recevras un e-mail quand elle sera en ligne.</p>"));
+        return json({ ok: true, id: row.id, mailed: m.ok, why: m.why, auto: true });
+      }
       const m = await mail(OWNER, `Flova : demande de ${author.split("@")[0]}`, page("Nouvelle demande sur le site Flova",
         `<p><b>${esc(author)}</b> demande :</p>${quote(instruction)}` +
         (body.reply ? `<p style="color:#4e5468">Réponse de l'assistant : ${esc(body.reply)}</p>` : "") +
-        `<p>Un clic suffit. Approuvée, la demande part à l'usine, qui la fabrique, la teste puis la met en ligne.</p>`,
+        `<p>Un clic suffit. Approuvée, la demande part à l'usine, qui la fabrique, la teste puis la met en ligne.</p>` +
+        `<p style="font-size:14px;color:#4e5468;margin-top:22px">Tu ne veux plus approuver chaque demande ? <a href="${link("auto")}" style="color:#2f5bff">Approuver celle-ci et toutes les suivantes automatiquement</a>. Tu pourras revenir en arrière depuis chaque e-mail.</p>`,
         [{ href: link("ok"), label: "Approuver" }, { href: link("non"), label: "Refuser", color: "#6b7188" }]));
       await mail(author, "Ta demande est bien reçue", page("Demande reçue ✓",
         `<p>Ta demande est transmise :</p>${quote(instruction)}<p>Tu recevras un e-mail dès qu'elle sera approuvée, puis quand elle sera en ligne.</p>`));
@@ -83,7 +93,10 @@ Deno.serve(async (req) => {
     if (body.action === "decide") {
       const { data: r } = await db.from("flova_requests").select("*").eq("id", body.id).maybeSingle();
       if (!r || String(r.token) !== String(body.token)) return json({ error: "Lien non valable." }, 404);
-      if (r.status !== "recue") return json({ ok: true, already: true, status: r.status, label: LABEL[r.status], instruction: r.instruction });
+      const mode = body.decision === "auto" ? "auto" : body.decision === "manuel" ? "manuel" : undefined;
+      if (mode) await db.from("flova_settings").upsert({ key: "auto_approve", value: mode === "auto", updated_at: new Date().toISOString() });
+      if (mode === "manuel") return json({ ok: true, mode, status: r.status, label: LABEL[r.status], instruction: r.instruction });
+      if (r.status !== "recue") return json({ ok: true, already: true, mode, status: r.status, label: LABEL[r.status], instruction: r.instruction });
       const status = body.decision === "non" ? "refusee" : "approuvee";
       await db.from("flova_requests").update({ status, decided_at: new Date().toISOString() }).eq("id", r.id).eq("status", "recue");
       await mail(r.author, status === "approuvee" ? "Ta demande est approuvée" : "Ta demande n'est pas retenue pour l'instant",
@@ -91,7 +104,7 @@ Deno.serve(async (req) => {
           quote(r.instruction) + (status === "approuvee"
             ? "<p>Elle part en fabrication. Tu recevras un e-mail quand elle sera en ligne.</p>"
             : "<p>Tu peux en parler directement en répondant à cet e-mail.</p>")));
-      return json({ ok: true, status, label: LABEL[status], instruction: r.instruction });
+      return json({ ok: true, status, mode, label: LABEL[status], instruction: r.instruction });
     }
 
     /* 3. L'usine prend les demandes approuvées et annonce la mise en ligne */

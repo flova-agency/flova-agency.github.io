@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: `Contenu actuel :\n${JSON.stringify(site)}\n\nDemande : ${instruction.trim()}` },
+          { role: "user", content: `Contenu actuel :\n${JSON.stringify(site)}\n\nDemande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
         ],
       }),
     });

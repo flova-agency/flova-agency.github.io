@@ -81,6 +81,8 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .marq{display:flex;gap:70px;width:max-content;animation:slide 30s linear infinite}
 .marq span{display:flex;align-items:center;gap:14px;font:800 22px Archivo;font-stretch:110%;white-space:nowrap;color:#d9dce6}
 .marq img{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff}
+.ini{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#2f5bff;color:#fff;font:800 15px Archivo;font-style:normal;flex:none;letter-spacing:.02em}
+.who .ini{width:56px;height:56px;font-size:18px}
 @keyframes slide{to{transform:translateX(-50%)}}
 @media(prefers-reduced-motion:reduce){.marq{animation:none}}
 
@@ -242,21 +244,39 @@ body.ed .edbar{display:flex}
 @media(max-width:700px){
  .edbar{left:8px;right:8px;bottom:8px;transform:none;max-width:none;padding:8px;gap:6px;border-radius:14px}
  #edstate{flex:1 1 100%;font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
- .edbar button{min-height:40px;padding:0 12px;font-size:13px;flex:1}
+ .edbar button{min-height:40px;padding:0 4px;font-size:12.5px;flex:1;white-space:nowrap}
+ .edbar button.ai{flex:1.4}
+ #edMoreB{flex:.75}
  .edbar .lg{display:none}.edbar .sm,#edMoreB{display:inline}
  .edmore{display:none}
  .edbar.open .edmore{display:flex;flex-wrap:wrap;gap:6px;width:100%;order:5}
  .edbar.open .edmore button{flex:1 1 calc(50% - 6px)}
  body.ed{padding-bottom:110px}
 }
+@media(max-width:380px){
+ .edbar button.ai{flex:1 1 100%}
+ body.ed{padding-bottom:160px}
+}
 
 .edbar span{font-size:14px;color:#c6cad8}
 .edbar b{color:#7ee2a8;font-weight:600}
 .edbar button{font:600 14px Inter;border:0;border-radius:10px;min-height:42px;padding:0 14px;cursor:pointer;background:#1a1f33;color:#fff}
 .edbar button.p{background:#2f5bff}
+.edbar button.ai{background:linear-gradient(135deg,#7b5cff,#2f5bff);box-shadow:0 0 0 1px rgba(255,255,255,.15) inset}
+.ask textarea{font:16px/1.45 Inter;border:1.5px solid #d9dce6;border-radius:14px;padding:12px 14px;resize:vertical;min-height:96px;width:100%;box-sizing:border-box}
+.ask textarea:focus{outline:0;border-color:#2f5bff}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{font:500 13px Inter;background:#f1f3f9;color:#262b3d;border:0;border-radius:999px;padding:8px 12px;cursor:pointer;text-align:left}
+.askres{background:#f3f5fb;border-radius:14px;padding:12px 14px;font-size:15px;color:#06070b;display:none}
+.askres.on{display:block}
+.askres button{margin-top:10px;font:600 13px Inter;background:#fff;color:#06070b;border:1px solid #d9dce6;border-radius:9px;min-height:38px;padding:0 12px;cursor:pointer}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #c5cbe0;border-top-color:#2f5bff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
 .modal{position:fixed;inset:0;z-index:200;display:none;place-items:center;background:rgba(0,0,0,.7);padding:16px}
 .modal.on{display:grid}
-.mbox{background:#fff;color:#06070b;border-radius:22px;padding:28px;width:min(440px,100%);display:grid;gap:14px}
+.mmsg:empty{display:none}
+.mbox{background:#fff;color:#06070b;border-radius:22px;padding:28px;width:min(440px,100%);display:grid;gap:14px;max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+@media(max-width:700px){.mbox{padding:20px;gap:12px}}
 .mbox h3{font:800 24px Archivo;font-stretch:115%;margin:0}
 .mbox p{color:#4e5468;font-size:15px;margin:0}
 .mbox .btn{background:#06070b;color:#fff;width:100%}
@@ -397,7 +417,8 @@ body.ed .edbar{display:flex}
 <button type="button" id="edFab" hidden style="position:fixed;right:16px;bottom:16px;z-index:90;font:600 14px Inter;background:#2f5bff;color:#fff;border:0;border-radius:999px;min-height:46px;padding:0 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);cursor:pointer">Modifier le site</button>
 <div class="edbar" id="edbar">
   <span id="edstate">Mode modification</span>
-  <button type="button" id="edUndo"><span class="lg">Annuler la dernière modification</span><span class="sm">↶ Annuler</span></button>
+  <button type="button" class="ai" id="edAsk">✦ Demander</button>
+  <button type="button" id="edUndo"><span class="lg">Annuler la dernière modification</span><span class="sm" aria-label="Annuler">↶<span class="tx"> Annuler</span></span></button>
   <div class="edmore">
     <button type="button" id="edHist">Historique</button>
     <button type="button" id="edLinks">Réglages</button>
@@ -451,6 +472,23 @@ body.ed .edbar{display:flex}
   <p class="mmsg" id="aMsg" role="status"></p>
 </div></div>
 
+<div class="modal" id="mAsk"><div class="mbox ask" style="width:min(560px,100%)">
+  <button class="x" type="button" data-close>Fermer</button>
+  <h3>Demander une modification</h3>
+  <p>Écris ce que tu veux changer. C’est publié aussitôt, et tu peux revenir en arrière.</p>
+  <textarea id="askTxt" rows="3" maxlength="2000" placeholder="Ex. : ajoute le client Boulangerie Saïd dans la liste des clients"></textarea>
+  <button class="btn" type="button" id="askGo">Envoyer la demande</button>
+  <p class="mmsg" id="askMsg" role="status"></p>
+  <div class="askres" id="askRes"><div id="askSum"></div><button type="button" id="askBack">Revenir comme avant</button></div>
+  <p style="font-size:13px;margin-top:4px">Exemples :</p>
+  <div class="chips" id="askChips">
+    <button type="button">Ajoute un client : Boulangerie Saïd</button>
+    <button type="button">Masque la section Offres</button>
+    <button type="button">Mets la section Contact juste après les Travaux</button>
+    <button type="button">Rends le grand titre plus percutant</button>
+  </div>
+</div></div>
+
 <input type="file" id="pick" accept="image/*" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -476,7 +514,7 @@ const ICO = {
 
 const DEF = {
   links: { email: 'Pro.fukay1070@hotmail.com', tiktok: 'https://www.tiktok.com/@fukay1070', instagram: 'https://www.instagram.com/fukay1070/' },
-  t: {}, hide: {},
+  t: {}, hide: {}, order: [],
   L: {
     tiles: [{img:'img/f1.jpg',t:'Micro-trottoir'},{img:'img/f3.jpg',t:'Visite de boutique'},{img:'img/f2.jpg',t:'Portrait'},{img:'img/tissus.jpg',t:'En boutique'},{img:'img/f4.jpg',t:'Créateur UGC'},{img:'img/rue.jpg',t:'Dans la rue'},{img:'img/hero.jpg',t:'Rue commerçante'}],
     logos: [{img:'img/l1.jpg',t:'Caftan Factory'},{img:'img/l4.jpg',t:'Original Farmer'},{img:'img/l2.jpg',t:'Mr. Pacha Kebab'},{img:'img/l3.jpg',t:'Crousty Factory'}],
@@ -500,9 +538,9 @@ const DEF = {
   }
 };
 const BLANK = {
-  tiles:{img:'img/f1.jpg',t:'Nouvelle vidéo'}, logos:{img:'img/l1.jpg',t:'Nouveau client'}, figs:{v:'0',t:'Nouveau chiffre'},
+  tiles:{img:'img/f1.jpg',t:'Nouvelle vidéo'}, logos:{img:'',t:'Nouveau client'}, figs:{v:'0',t:'Nouveau chiffre'},
   caps:{i:'b',t:'Nouvelle expertise',d:'Description.'}, fmt:{img:'img/f1.jpg',t:'Nouveau format',d:'Description.'},
-  cases:{logo:'img/l1.jpg',photo:'',name:'Nouveau client',meta:'Secteur · plateforme, période',g:[{l:'TikTok',s:[{v:'0',t:'vues'}]}]},
+  cases:{logo:'',photo:'',name:'Nouveau client',meta:'Secteur · plateforme, période',g:[{l:'TikTok',s:[{v:'0',t:'vues'}]}]},
   steps:{t:'Nouvelle étape',d:'Description.'}, sect:{t:'Nouveau secteur',d:'Description.'},
   plans:{t:'Nouvelle offre',v:'0',u:'vidéos par mois',tag:'',items:['Avantage']}, addons:{t:'Nouveau service',d:'Description.'}
 };
@@ -518,6 +556,8 @@ const TB = (list, i, extra='') => `<div class="tb">${extra}<button type="button"
 const IMGB = path => `<button type="button" class="imgb" data-img="${path}">Changer l'image</button>`;
 const ADD = list => `<button type="button" class="addb" data-act="add" data-l="${list}">+ Ajouter</button>`;
 const src = s => esc(s || '');
+const ini = n => esc(String(n || '?').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?');
+const logoH = (img, name) => img ? `<img src="${src(img)}" alt="">` : `<i class="ini">${ini(name)}</i>`;
 
 function render() {
   const L = C.L;
@@ -525,16 +565,16 @@ function render() {
   const cols = [[], [], []]; tileH.forEach((h, i) => cols[i % 3].push(h));
   cols.forEach((c, k) => { const h = (c.length ? c : tileH).join(''); $('t' + (k + 1)).innerHTML = h + h + h; });
   $('L_tiles').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">${L.tiles.map((x,i)=>`<div class="it" style="width:150px;border:1px solid var(--line);border-radius:12px;padding:8px;padding-top:46px"><img src="${src(x.img)}" alt="" style="aspect-ratio:9/16;object-fit:cover;border-radius:8px">${IMGB(`tiles.${i}.img`)}${P(`tiles.${i}.t`,x.t,'p','m')}${TB('tiles',i)}</div>`).join('')}</div>${ADD('tiles')}` : '';
-  const lg = L.logos.map(x => `<span><img src="${src(x.img)}" alt="">${esc(x.t)}</span>`).join('');
+  const lg = L.logos.map(x => `<span>${logoH(x.img, x.t)}${esc(x.t)}</span>`).join('');
   $('marq').innerHTML = lg + lg + lg + lg;
-  $('L_logos').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">${L.logos.map((x,i)=>`<div class="it" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 10px;min-width:260px;padding-top:48px"><img src="${src(x.img)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff">${IMGB(`logos.${i}.img`)}${P(`logos.${i}.t`,x.t,'b')}${TB('logos',i)}</div>`).join('')}</div>${ADD('logos')}` : '';
+  $('L_logos').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">${L.logos.map((x,i)=>`<div class="it" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 10px;min-width:260px;padding-top:48px">${x.img ? `<img src="${src(x.img)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff">` : `<i class="ini">${ini(x.t)}</i>`}${IMGB(`logos.${i}.img`)}${P(`logos.${i}.t`,x.t,'b')}${TB('logos',i)}</div>`).join('')}</div>${ADD('logos')}` : '';
   $('L_figs').innerHTML = L.figs.map((x,i)=>`<div class="it">${P(`figs.${i}.v`,x.v,'div','d')}${P(`figs.${i}.t`,x.t)}${TB('figs',i)}</div>`).join('') + (ED?`<div>${ADD('figs')}</div>`:'');
   $('L_caps').innerHTML = L.caps.map((x,i)=>`<div class="cap it">${P(`caps.${i}.t`,x.t,'h3')}${P(`caps.${i}.d`,x.d,'p','m')}<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8">${ICO[x.i]||ICO.b}</svg>${TB('caps',i)}</div>`).join('') + ADD('caps');
   $('L_fmt').innerHTML = L.fmt.map((x,i)=>`<figure class="it"><div class="pic" style="position:relative"><img src="${src(x.img)}" alt="${esc(x.t)}" loading="lazy">${IMGB(`fmt.${i}.img`)}</div>${P(`fmt.${i}.t`,x.t,'h3')}${P(`fmt.${i}.d`,x.d,'p','m')}${TB('fmt',i)}</figure>`).join('') + (ED?`<div>${ADD('fmt')}</div>`:'');
   const caseH = (x,i) => {
     const gs = x.g.map((g,j)=>`${(g.l||ED)?P(`cases.${i}.g.${j}.l`,g.l||'','div','plab'):''}<div class="k">${g.s.map((s,k)=>`<div class="it">${P(`cases.${i}.g.${j}.s.${k}.v`,s.v,'div','d')}${P(`cases.${i}.g.${j}.s.${k}.t`,s.t)}<div class="tb"><button type="button" data-act="sdel" data-i="${i}" data-j="${j}" data-k2="${k}" aria-label="Supprimer le chiffre">✕</button></div></div>`).join('')}${ED?`<div><button type="button" class="addb" data-act="sadd" data-i="${i}" data-j="${j}">+ Chiffre</button></div>`:''}</div>`).join('');
     const photo = x.photo ? `<div class="ph"><img src="${src(x.photo)}" alt="" loading="lazy">${IMGB(`cases.${i}.photo`)}</div>` : (ED?`<div style="padding:16px"><button type="button" class="addb" data-img="cases.${i}.photo">+ Photo</button></div>`:'');
-    return `<article class="case it" style="${x.photo?'':'grid-template-columns:1fr'}">${photo}<div class="tx"><div class="who" style="position:relative"><img src="${src(x.logo)}" alt="Logo ${esc(x.name)}">${IMGB(`cases.${i}.logo`)}<div>${P(`cases.${i}.name`,x.name,'b')}${P(`cases.${i}.meta`,x.meta)}</div></div>${gs}${ED?`<button type="button" class="addb" data-act="gadd" data-i="${i}">+ Plateforme</button>`:''}</div>${TB('cases',i, x.photo?`<button type="button" data-act="nophoto" data-i="${i}">Sans photo</button>`:'')}</article>`;
+    return `<article class="case it" style="${x.photo?'':'grid-template-columns:1fr'}">${photo}<div class="tx"><div class="who" style="position:relative">${x.logo ? `<img src="${src(x.logo)}" alt="Logo ${esc(x.name)}">` : `<i class="ini">${ini(x.name)}</i>`}${IMGB(`cases.${i}.logo`)}<div>${P(`cases.${i}.name`,x.name,'b')}${P(`cases.${i}.meta`,x.meta)}</div></div>${gs}${ED?`<button type="button" class="addb" data-act="gadd" data-i="${i}">+ Plateforme</button>`:''}</div>${TB('cases',i, x.photo?`<button type="button" data-act="nophoto" data-i="${i}">Sans photo</button>`:'')}</article>`;
   };
   const big = L.cases.filter(c => c.photo), small = L.cases.map((c,i)=>[c,i]).filter(([c]) => !c.photo);
   let h = '';
@@ -552,6 +592,7 @@ function render() {
   const em = C.links.email || DEF.links.email;
   document.querySelectorAll('.mailto').forEach(a => { a.href = 'mailto:' + em; if (!a.querySelector('[data-k]')) a.textContent = em; });
   [['a_tt','tiktok'],['a_tt2','tiktok'],['a_ig','instagram'],['a_ig2','instagram']].forEach(([id,k]) => { if (C.links[k]) $(id).href = C.links[k]; });
+  placeSections();
   document.querySelectorAll('[data-s]').forEach(s => {
     s.dataset.hide = C.hide[s.dataset.s] ? '1' : '0';
     let bar = s.querySelector(':scope > .secbar');
@@ -561,6 +602,12 @@ function render() {
   setEditable();
 }
 
+const SECS = [...document.querySelectorAll('[data-s]')].map(s => s.dataset.s);
+function placeSections() {
+  const want = [...new Set([...(C.order || []).filter(n => SECS.includes(n)), ...SECS])];
+  const foot = document.querySelector('footer');
+  want.forEach(n => { const el = document.querySelector(`[data-s="${n}"]`); if (el) foot.parentNode.insertBefore(el, foot); });
+}
 function setEditable() {
   document.querySelectorAll('[data-k],[data-p]').forEach(el => {
     if (ED) { el.contentEditable = 'plaintext-only'; if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true'; el.spellcheck = true; }
@@ -581,7 +628,7 @@ async function save() {
   if (!sb || !user) return;
   if (saving) { pending = true; return; }
   saving = true;
-  const data = { links: C.links, t: C.t, hide: C.hide, L: C.L, v: 1 };
+  const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], L: C.L, v: 1 };
   dirty = true;
   const { error } = rowExists
     ? await sb.from('flova_content').update({ data }).eq('id', 'site')
@@ -707,7 +754,7 @@ async function onSessionRun(s, ev) {
 $('edFab').addEventListener('click', () => enterEd());
 $('edMoreB').addEventListener('click', () => { const o = $('edbar').classList.toggle('open'); $('edMoreB').textContent = o ? 'Moins' : 'Plus'; });
 $('edbar').addEventListener('click', e => { if (e.target.closest('.edmore button')) { $('edbar').classList.remove('open'); $('edMoreB').textContent = 'Plus'; } });
-function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state('Touchez un texte pour le changer. Tout est publié aussitôt.'); }
+function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state('Demandez une modification avec ✦ Demander, ou touchez un texte pour le changer.'); }
 function leaveEd() { $('edFab').hidden = !user; ED = false; document.body.classList.remove('ed'); render(); }
 $('edQuit').addEventListener('click', async () => { clearTimeout(saveT); await save(); leaveEd(); });
 $('edOut').addEventListener('click', async () => { clearTimeout(saveT); await save(); await sb.auth.signOut(); leaveEd(); });
@@ -777,6 +824,66 @@ $('lkSave').addEventListener('click', () => {
 });
 function alertIn(t) { $('lkSave').textContent = t; setTimeout(() => $('lkSave').textContent = 'Enregistrer', 2000); }
 
+/* ---------- assistant : modification par une demande écrite ---------- */
+let askBefore = null;
+function siteNow() {
+  const t = {};
+  document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; t[k] = C.t[k] != null ? C.t[k] : (el.dataset.k0 ?? el.textContent); });
+  const order = [...new Set([...(C.order || []).filter(n => SECS.includes(n)), ...SECS])];
+  return { t, L: clone(C.L), hide: clone(C.hide), order, links: { email: C.links.email || DEF.links.email, tiktok: C.links.tiktok || DEF.links.tiktok, instagram: C.links.instagram || DEF.links.instagram, seoTitle: C.links.seoTitle || '', seoDesc: C.links.seoDesc || '' } };
+}
+function fixList(k, arr) {
+  return arr.map(x => {
+    const o = Object.assign(clone(BLANK[k]), x && typeof x === 'object' ? x : {});
+    for (const f in o) if (typeof BLANK[k][f] === 'string' && typeof o[f] !== 'string') o[f] = String(o[f] ?? '');
+    if (k === 'cases') o.g = (Array.isArray(o.g) && o.g.length ? o.g : clone(BLANK.cases.g)).map(g => ({ l: String(g?.l ?? ''), s: (Array.isArray(g?.s) ? g.s : []).map(s => ({ v: String(s?.v ?? ''), t: String(s?.t ?? '') })) }));
+    if (k === 'plans') o.items = (Array.isArray(o.items) ? o.items : []).map(String);
+    return o;
+  });
+}
+function applyAsk(site) {
+  const k0 = {}; document.querySelectorAll('[data-k]').forEach(el => k0[el.dataset.k] = el.dataset.k0);
+  const t = {}; for (const k in site.t || {}) if (typeof site.t[k] === 'string' && (site.t[k] !== k0[k] || C.t[k] != null)) t[k] = site.t[k];
+  C.t = t;
+  for (const k in DEF.L) if (Array.isArray(site.L?.[k])) C.L[k] = fixList(k, site.L[k]);
+  C.hide = {}; for (const k in site.hide || {}) if (site.hide[k] === true) C.hide[k] = true;
+  C.order = Array.isArray(site.order) ? site.order.filter(n => SECS.includes(n)) : [];
+  const l = site.links || {}; C.links = { email: l.email || DEF.links.email, tiktok: l.tiktok || DEF.links.tiktok, instagram: l.instagram || DEF.links.instagram, seoTitle: l.seoTitle || '', seoDesc: l.seoDesc || '' };
+}
+const askMsg = (t, bad) => { $('askMsg').innerHTML = t; $('askMsg').style.color = bad ? '#c0262d' : '#4e5468'; };
+$('edAsk').addEventListener('click', () => { askMsg(''); $('askRes').classList.remove('on'); $('mAsk').classList.add('on'); setTimeout(() => $('askTxt').focus(), 50); });
+$('askChips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $('askTxt').value = b.textContent; $('askTxt').focus(); });
+$('askTxt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('askGo').click(); } });
+$('askGo').addEventListener('click', async () => {
+  const instruction = $('askTxt').value.trim();
+  if (!instruction) return askMsg('Écris d’abord ta demande.', true);
+  if (!sb || !user) return askMsg('Connexion perdue. Ferme cette fenêtre et reconnecte-toi.', true);
+  $('askGo').disabled = true; $('askRes').classList.remove('on');
+  askMsg('<span class="spin"></span>L’assistant prépare la modification… (quelques secondes)');
+  clearTimeout(saveT); if (dirty) await save();
+  const before = { t: clone(C.t), L: clone(C.L), hide: clone(C.hide), order: clone(C.order || []), links: clone(C.links) };
+  let res;
+  try {
+    const { data, error } = await sb.functions.invoke('flova-assistant', { body: { instruction, site: siteNow() } });
+    if (error) { let m = ''; try { m = (await error.context.json()).error; } catch (x) {} throw new Error(m || 'L’assistant ne répond pas pour le moment. Réessaie dans un instant.'); }
+    res = data;
+  } catch (x) { $('askGo').disabled = false; return askMsg(esc(x.message || String(x)), true); }
+  $('askGo').disabled = false;
+  if (!res?.site || !res.count) { askMsg(''); $('askSum').textContent = res?.resume || 'Rien n’a été changé.'; $('askBack').hidden = true; $('askRes').classList.add('on'); $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  try { applyAsk(res.site); render(); }
+  catch (x) { Object.assign(C, before); render(); return askMsg('La modification n’a pas pu s’afficher, rien n’a été changé. Reformule ta demande.', true); }
+  askBefore = before; undoList = null;
+  await save();
+  askMsg(''); $('askSum').textContent = '✓ ' + res.resume + ' C’est en ligne.'; $('askBack').hidden = false; $('askRes').classList.add('on');
+  $('askRes').scrollIntoView({ block: 'center', behavior: 'smooth' });
+  $('askTxt').value = '';
+});
+$('askBack').addEventListener('click', async () => {
+  if (!askBefore) return;
+  Object.assign(C, clone(askBefore)); askBefore = null; render(); await save();
+  $('askSum').textContent = 'C’est revenu comme avant ✓'; $('askBack').hidden = true;
+});
+
 /* ---------- formulaire public ---------- */
 $('f').addEventListener('submit', e => {
   e.preventDefault();
@@ -799,6 +906,7 @@ function apply(d) {
   if (d.links) Object.assign(C.links, d.links);
   if (d.t) C.t = d.t;
   if (d.hide) C.hide = d.hide;
+  if (Array.isArray(d.order)) C.order = d.order;
   if (d.L) for (const k in DEF.L) if (Array.isArray(d.L[k])) C.L[k] = d.L[k];
 }
 render();

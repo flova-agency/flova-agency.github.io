@@ -315,6 +315,8 @@ Deno.serve(async (req) => {
     });
     const body = await req.json();
     const { instruction, site } = body;
+    // mémoire de la discussion en cours (8 derniers échanges, courts) : seule cette demande, pas tout l'historique → rapide et peu coûteux
+    const ctx = Array.isArray(body.contexte) ? body.contexte.slice(-8).filter((m: any) => m && (m.side === "in" || m.side === "out") && typeof m.texte === "string").map((m: any) => (m.side === "out" ? "Le client : " : "Toi : ") + m.texte.replace(/\s+/g, " ").slice(0, 500)).join("\n") : "";
     const demo = body.demo === true;
     if (!demo) {
       const { data: ok } = await sb.rpc("flova_is_editor");
@@ -357,7 +359,7 @@ Deno.serve(async (req) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: `Contenu actuel (en français, langue principale) :\n${JSON.stringify({ ...site, langs: undefined })}\n\nLangues déjà traduites : ${Object.keys(site?.langs || {}).join(", ") || "aucune"}\n\nDemande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
+          { role: "user", content: `Contenu actuel (en français, langue principale) :\n${JSON.stringify({ ...site, langs: undefined })}\n\nLangues déjà traduites : ${Object.keys(site?.langs || {}).join(", ") || "aucune"}\n\n${ctx ? "Échanges précédents de cette discussion (même demande, pour le contexte) :\n" + ctx + "\n\n" : ""}Demande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
         ],
       });
     const logUse = (out: any, changed: boolean, tag = "") => {

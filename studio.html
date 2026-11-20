@@ -52,6 +52,13 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 @keyframes bl{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
 .chips{display:flex;gap:7px;overflow-x:auto;padding:8px 10px 2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
+.fils{display:flex;flex-direction:column;margin-top:8px;border-top:1px solid #e9edef}
+.fils button{display:flex;gap:10px;align-items:center;text-align:left;background:none;border:0;border-bottom:1px solid #e9edef;padding:10px 2px;font:inherit;color:inherit;cursor:pointer;min-height:48px}
+.fils .ic{flex:none;width:30px;height:30px;border-radius:50%;background:#e7fce3;display:grid;place-items:center;font-size:14px}
+.fils .ic .ok2{font-style:normal;color:#53bdeb;font-weight:700;font-size:12px}
+.fils .tx{min-width:0;display:flex;flex-direction:column}
+.fils .tx b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.fils small{color:#667781;font-size:12px}
 .chips button{flex:none;font:500 13px Inter;background:#fff;color:#111b21;border:1px solid #d1d7db;border-radius:999px;padding:7px 12px;cursor:pointer}
 .comp{display:flex;align-items:flex-end;gap:7px;padding:8px 8px 10px}
 .comp textarea{flex:1;resize:none;border:0;border-radius:22px;padding:11px 16px;font:16px/1.35 Inter;max-height:120px;outline:0;background:#fff;color:#111b21}
@@ -182,6 +189,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="chips" id="chips">
       <button type="button">📊 Analyse mon site et note-le sur 100</button>
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
+      <button type="button" data-fils>💬 Mes demandes</button>
       <button type="button" data-msgs>✉️ Messages</button>
       <button type="button" data-stats>📈 Mes visites</button>
       <button type="button" data-vers>🕓 Mes versions</button>
@@ -223,10 +231,22 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   let cur = null, hist = [], busy = false, ready = false, pending = null, editor = false, login = null;
   const ifr = $('ifr'), msgs = $('msgs'), txt = $('txt'), go = $('go');
   const now = () => new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+  /* Discussions : chaque demande devient une discussion gardée (comme WhatsApp). La mémoire envoyée à l'assistant
+     se limite à la discussion en cours : plus courte, donc plus rapide et moins chère qu'un historique complet. */
+  let thrP = null, thrCtx = [], suiteJusqua = 0, chaine = Promise.resolve();
+  const texteDe = d => { const c = d.cloneNode(true); c.querySelectorAll('.t,a,button,form,.serp,.sty,.styk,.dom .pris span:last-child').forEach(x => x.remove()); return c.textContent.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000); };
+  function archive(side, d) {
+    if (!thrP || login || !editor) return;
+    const texte = texteDe(d); if (!texte) return;
+    thrCtx.push({ side, texte }); const p = thrP;
+    chaine = chaine.then(async () => { const id = await p; if (id) await sb.from('flova_thread_msgs').insert({ thread_id: id, side, texte }); }).catch(() => {});
+  }
+  function statut(v) { const p = thrP; if (p) p.then(id => id && sb.from('flova_threads').update({ statut: v }).eq('id', id)).catch(() => {}); }
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  function bubble(html, side) {
-    const d = document.createElement('div'); d.className = 'b ' + side; d.innerHTML = html + `<span class="t">${now()}</span>`;
+  function bubble(html, side, at) {
+    const d = document.createElement('div'); d.className = 'b ' + side; d.innerHTML = html + `<span class="t">${at || now()}</span>`;
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+    if (!at) archive(side, d);
     if (side === 'in') { const c = d.cloneNode(true); c.querySelector('.t').remove(); c.querySelectorAll('a,button').forEach(a => a.remove()); $('pv').textContent = c.textContent.replace(/\s+/g, ' ').trim(); }
     return d;
   }
@@ -356,12 +376,15 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     }
     if (apercuStyle) { apercuStyle = null; post({ type: 'apercu-site', site: cur }); }
     $('stybar').classList.remove('on');
-    busy = true; bubble(esc(instruction), 'out');
+    busy = true;
+    if (!thrP || Date.now() > suiteJusqua) { thrCtx = []; thrP = sb.from('flova_threads').insert({ titre: instruction.slice(0, 120) }).select('id').single().then(({ data }) => data?.id || null, () => null); }
+    const contexte = thrCtx.slice(-8);
+    bubble(esc(instruction), 'out');
     let send = instruction;
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; }
     txt.value = ''; txt.style.height = 'auto'; setBtn(); typing(true, /(anglais|anglaise|néerlandais|neerlandais|allemand|espagnol|italien|turc|arabe|portugais|tradu)/i.test(instruction) ? 'tr' : /(analyse|note|audit)/i.test(instruction) ? 'an' : '');
     try {
-      const { data: j, error } = await sb.functions.invoke('flova-assistant', { body: { instruction: send, site: cur } });
+      const { data: j, error } = await sb.functions.invoke('flova-assistant', { body: { instruction: send, site: cur, contexte } });
       let err = null; if (error) { try { err = (await error.context.json()).error; } catch (x) {} err = err || 'L’assistant ne répond pas pour le moment. Réessaie dans un instant.'; }
       typing(false);
       if (err) { bubble(esc(err), 'in'); }
@@ -394,7 +417,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
           const { data: r, error: e2 } = await sb.functions.invoke('flova-demande', { body: { action: 'send', instruction, reply: j.resume || '' } });
           let m2 = null; if (e2) { try { m2 = (await e2.context.json()).error; } catch (x) {} }
           if (e2 || r?.error) { btn.disabled = false; btn.textContent = 'Envoyer à Uxlab'; bubble(esc(m2 || r?.error || 'Envoi impossible pour le moment.'), 'in'); }
-          else { btn.remove(); bubble('Envoyée à Uxlab ✓ Tu recevras un e-mail à chaque étape, jusqu’à la mise en ligne.', 'in'); }
+          else { btn.remove(); statut('uxlab'); bubble('Envoyée à Uxlab ✓ Tu recevras un e-mail à chaque étape, jusqu’à la mise en ligne.', 'in'); }
         });
       } else if (j.type === 'domaine') {
         const b = bubble('🌐 ' + esc(j.resume || '') + '<div class="dom">' + (j.domaines || []).map(x => x.libre === true ? `<div><span>✅<b>${esc(x.d)}</b></span><button type="button" data-d="${esc(x.d)}">Je la prends</button></div>` : `<div class="pris"><span>${x.libre === false ? '✖' : '?'}<b>${esc(x.d)}</b></span><span>${x.libre === false ? 'déjà prise' : 'à vérifier'}</span></div>`).join('') + '</div>', 'in');
@@ -441,9 +464,11 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         bubble(esc(j.resume || 'Dis-m’en un peu plus ?'), 'in');
       }
       if (!(j && j.count > 0)) sheet(true);
+      statut(err ? 'en_cours' : j.count > 0 ? 'fait' : 'question');
+      suiteJusqua = Date.now() + 5 * 60e3; // une précision dans les 5 minutes reste dans la même discussion
       if (j && Array.isArray(j.choix) && j.choix.length) {
         const q = document.createElement('div'); q.className = 'qr';
-        j.choix.forEach(c => { const x = document.createElement('button'); x.type = 'button'; x.textContent = c; x.onclick = () => { q.remove(); ask(c); }; q.appendChild(x); });
+        j.choix.forEach(c => { const x = document.createElement('button'); x.type = 'button'; x.textContent = c; x.onclick = () => { q.remove(); suiteJusqua = Date.now() + 5 * 60e3; ask(c); }; q.appendChild(x); });
         msgs.appendChild(q); msgs.scrollTop = msgs.scrollHeight;
       }
     } catch (x) { typing(false); bubble('Petit souci de connexion. Réessaie dans un instant.', 'in'); sheet(true); }
@@ -507,6 +532,27 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     }));
   }
   /* messages reçus par le formulaire du site */
+  const ICO = { fait: '<i class="ok2">✓✓</i>', annule: '↶', uxlab: '🛠', question: '💬', en_cours: '⏳' };
+  async function discussions() {
+    sheet(true);
+    const { data, error } = await sb.from('flova_threads').select('id,titre,statut,last_at,n,by').order('last_at', { ascending: false }).limit(40);
+    if (error) return bubble('Je n’arrive pas à lire tes demandes pour le moment. Réessaie dans un instant.', 'in', now());
+    if (!data || !data.length) return bubble('💬 Pas encore de demande gardée. Chaque demande que tu m’écris devient une discussion ici, comme sur WhatsApp : tu pourras la rouvrir et la continuer.', 'in', now());
+    const b = bubble('💬 <b>Mes demandes</b> · touche une discussion pour la rouvrir et la continuer<div class="fils">' + data.map(r => `<button type="button" data-t="${r.id}"><span class="ic">${ICO[r.statut] || '💬'}</span><span class="tx"><b>${esc(r.titre)}</b><small>${esc(quand(r.last_at))}${r.n ? ' · ' + r.n + ' message' + (r.n > 1 ? 's' : '') : ''}</small></span></button>`).join('') + '</div>', 'in', now());
+    b.querySelectorAll('[data-t]').forEach(x => x.addEventListener('click', () => ouvrir(+x.dataset.t, x.querySelector('b').textContent)));
+  }
+  async function ouvrir(id, titre) {
+    const { data, error } = await sb.from('flova_thread_msgs').select('side,texte,at').eq('thread_id', id).order('id').limit(200);
+    if (error) return bubble('Je n’arrive pas à ouvrir cette discussion. Réessaie dans un instant.', 'in', now());
+    msgs.innerHTML = '';
+    const h = bubble(`💬 <b>${esc(titre)}</b>\nTu peux continuer cette demande ici.\n<a data-back>← Toutes mes demandes</a>   <a data-new>＋ Nouvelle demande</a>`, 'in', now()); h.classList.add('fh');
+    h.querySelector('[data-back]').addEventListener('click', discussions);
+    h.querySelector('[data-new]').addEventListener('click', nouvelle);
+    (data || []).forEach(m => bubble(esc(m.texte), m.side, quand(m.at)));
+    thrP = Promise.resolve(id); thrCtx = (data || []).map(m => ({ side: m.side, texte: m.texte })); suiteJusqua = Infinity;
+    txt.focus();
+  }
+  function nouvelle() { thrP = null; thrCtx = []; suiteJusqua = 0; msgs.innerHTML = ''; bubble('＋ Nouvelle demande : dis-moi ce que tu veux changer sur ton site.', 'in', now()); txt.focus(); }
   async function badgeMsgs() {
     try { const { count } = await sb.from('flova_messages').select('id', { count: 'exact', head: true }).eq('lu', false).eq('test', false); const c = document.querySelector('#chips [data-msgs]'); if (c) c.innerHTML = '✉️ Messages' + (count ? `<em>${count}</em>` : ''); if (count) { const ch = c; ch.parentNode.prepend(ch); } } catch (x) {}
   }
@@ -573,7 +619,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     const bad = await publish(prev);
     busy = false;
     if (bad) return bubble('Je n’ai pas pu revenir en arrière (' + esc(bad) + '). Réessaie dans un instant.', 'in');
-    hist.pop(); cur = prev; bubble('<span class="ok">↶ C’est revenu comme avant, en ligne.</span>', 'in');
+    hist.pop(); cur = prev; statut('annule'); bubble('<span class="ok">↶ C’est revenu comme avant, en ligne.</span>', 'in');
   }
 
   /* voix */
@@ -602,7 +648,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopMic(); });
   window.addEventListener('pagehide', stopMic);
   $('comp').addEventListener('submit', e => { e.preventDefault(); if (rec) { stopMic(); return; } const v = txt.value.trim(); if (v) ask(v); else if (!login) listen(); });
-  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } if (b.dataset.share != null) { partager(); return; } if (b.dataset.stats != null) { visites(); return; } if (b.dataset.msgs != null) { messages(); return; } ask(b.textContent); });
+  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.vers != null || b.dataset.share != null || b.dataset.stats != null || b.dataset.msgs != null || b.dataset.fils != null) { thrP = null; suiteJusqua = 0; } if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } if (b.dataset.share != null) { partager(); return; } if (b.dataset.stats != null) { visites(); return; } if (b.dataset.msgs != null) { messages(); return; } if (b.dataset.fils != null) { discussions(); return; } suiteJusqua = 0; ask(b.textContent); });
   $('att').addEventListener('click', () => $('pic').click());
 
   /* photo : réduite, envoyée dans le stockage du site, puis proposée à l'assistant */

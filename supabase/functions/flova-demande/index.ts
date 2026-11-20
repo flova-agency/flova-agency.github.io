@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           mailOk = (await mail(to, `Nouveau message de ${f.nom}${f.entreprise ? " (" + f.entreprise + ")" : ""}`, page("Nouveau message reçu sur ton site", `<p>${lignes}</p>${f.message ? quote(f.message) : ""}<p>Réponds simplement à ce mail : ta réponse part directement chez ${esc(f.nom)}. Le message est aussi dans ton studio, bouton « Messages ».</p>`), f.email)).ok;
         }
       }
-      return json({ ok: true, id: row.id, mail: mailOk });
+      return json({ ok: true, id: row.id, mail: mailOk, ...(test ? { ipv: !!ip, h: [...req.headers.keys()].filter(k => /ip|forward|real/i.test(k)) } : {}) });
     }
 
     /* 1. Furkan envoie une demande */

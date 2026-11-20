@@ -347,7 +347,13 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     if (busy) return;
     if (login) return loginStep(instruction);
     if (!editor) return startLogin();
-    if (!ready) { bubble('Une seconde, ton site se charge…', 'in'); return; }
+    if (!ready) {
+      // le site n'est pas encore chargé : on garde la demande et on la traite dès qu'il est prêt (jamais de demande perdue)
+      busy = true; txt.value = ''; setBtn(); typing(true, '');
+      for (let i = 0; i < 100 && !ready; i++) await new Promise(r => setTimeout(r, 200));
+      busy = false; typing(false);
+      if (!ready) { bubble('Ton site met du temps à se charger. Vérifie ta connexion et renvoie ta demande.', 'in'); txt.value = instruction; setBtn(); return; }
+    }
     if (apercuStyle) { apercuStyle = null; post({ type: 'apercu-site', site: cur }); }
     $('stybar').classList.remove('on');
     busy = true; bubble(esc(instruction), 'out');

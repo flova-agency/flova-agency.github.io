@@ -186,6 +186,13 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .stat .row b{display:block;font:800 clamp(28px,3vw,40px)/1 var(--fh);font-stretch:115%}
 .stat span{color:#c9d2ff;font-size:14px}
 .soc{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+.mq{margin-top:clamp(44px,6vw,84px);padding-top:clamp(30px,4vw,52px);border-top:1px solid var(--line)}
+.mq h3{font:800 clamp(24px,3vw,38px)/1.08 var(--fh);letter-spacing:-.02em;margin:10px 0 0;max-width:22ch}
+.mqg{display:flex;flex-wrap:wrap;gap:10px 12px;margin-top:26px}
+.mqg .it{position:relative;font:800 clamp(15px,1.5vw,20px)/1 var(--fh);letter-spacing:-.01em;padding:15px 20px;border:1px solid var(--line);border-radius:999px;color:var(--fg,#fff);background:color-mix(in srgb,currentColor 4%,transparent)}
+body.ed .mqg .it{padding-top:48px;border-radius:14px}
+.mq .note{margin-top:18px}
+@media(max-width:520px){.mqg{gap:8px}.mqg .it{font-size:14px;padding:11px 15px}}
 @media(max-width:900px){.founder{grid-template-columns:1fr}}
 
 /* secteurs */
@@ -406,6 +413,12 @@ body.ed .edbar{display:flex}
     <div><div class="d" data-k="f_big">3 M</div><span data-k="f_big_l">abonnés sur le compte TikTok @fukay1070</span></div>
     <div class="row"><div><b data-k="f_s1">80,4 M</b><span data-k="f_s1_l">j'aime sur TikTok</span></div><div><b data-k="f_s2">BXL · PAR</b><span data-k="f_s2_l">Bruxelles et Paris</span></div></div>
   </div>
+</div>
+<div class="wrap mq" id="marques">
+  <div class="eyebrow" data-k="mq_eyebrow">Collaborations du fondateur</div>
+  <h3 data-k="mq_title">Avant Flova, Fukay a travaillé avec les plus grandes marques.</h3>
+  <div class="mqg" id="L_marques"></div>
+  <p class="note" data-k="mq_note">Campagnes réalisées par Fukay en tant que créateur de contenu, sur Instagram et TikTok, notamment en 2022 et 2023.</p>
 </div></section>
 
 <section class="band" data-s="secteurs"><div class="wrap">
@@ -593,11 +606,12 @@ const DEF = {
       {t:'Croissance',v:'12',u:'vidéos par mois',tag:'La plus choisie',items:['TikTok, Instagram, Facebook, YouTube Shorts','1 contenu UGC par mois','Stratégie et accompagnement','Suivi mensuel des performances','1 réunion stratégique par mois']},
       {t:'Impact',v:'20',u:'vidéos par mois',tag:'',items:['TikTok, Instagram, Facebook, YouTube Shorts','1 contenu UGC par mois','Stratégie et accompagnement','Suivi hebdomadaire des performances','1 réunion stratégique par mois']}
     ],
+    marques: [{t:'Amazon'},{t:'Prime Video'},{t:'Netflix'},{t:'Disneyland Paris'},{t:'Fast & Furious'},{t:'Adidas'},{t:'Nutella'},{t:'Evian'},{t:'Nescafé'},{t:'Orangina'},{t:'Capri-Sun'},{t:'Axe'},{t:'G-Shock'},{t:'Vinted'},{t:'Meta'},{t:"O'Tacos"},{t:'Chicken Street'},{t:'Five Pizza Original'},{t:'Konbini'},{t:'NRJ Music Awards'}],
     addons: [{t:'Campagnes sponsorisées Meta et TikTok',d:'Préparation et pilotage de vos campagnes. Le budget média est payé directement aux plateformes.'},{t:'Création de site internet',d:'Un site à votre image, qui prolonge vos contenus et accueille vos nouveaux clients.'}]
   }
 };
 const BLANK = {
-  tiles:{img:'img/f1.jpg',t:'Nouvelle vidéo'}, logos:{img:'',t:'Nouveau client'}, figs:{v:'0',t:'Nouveau chiffre'},
+  tiles:{img:'img/f1.jpg',t:'Nouvelle vidéo'}, logos:{img:'',t:'Nouveau client'}, marques:{t:'Nouvelle marque'}, figs:{v:'0',t:'Nouveau chiffre'},
   caps:{i:'b',t:'Nouvelle expertise',d:'Description.'}, fmt:{img:'img/f1.jpg',t:'Nouveau format',d:'Description.'},
   cases:{logo:'',photo:'',name:'Nouveau client',meta:'Secteur · plateforme, période',g:[{l:'TikTok',s:[{v:'0',t:'vues'}]}]},
   steps:{t:'Nouvelle étape',d:'Description.'}, sect:{t:'Nouveau secteur',d:'Description.'},
@@ -723,6 +737,7 @@ function renderBase() {
   const lg = L.logos.map(x => `<span>${logoH(x.img, x.t)}${esc(x.t)}</span>`).join('');
   $('marq').innerHTML = lg + lg + lg + lg;
   $('L_logos').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">${L.logos.map((x,i)=>`<div class="it" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 10px;min-width:260px;padding-top:48px">${x.img ? `<img src="${src(x.img)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff">` : `<i class="ini">${ini(x.t)}</i>`}${IMGB(`logos.${i}.img`)}${P(`logos.${i}.t`,x.t,'b')}${TB('logos',i)}</div>`).join('')}</div>${ADD('logos')}` : '';
+  $('L_marques').innerHTML = (L.marques||[]).map((x,i)=>`<span class="it">${P(`marques.${i}.t`,x.t)}${TB('marques',i)}</span>`).join('') + ADD('marques');
   $('L_figs').innerHTML = L.figs.map((x,i)=>`<div class="it">${P(`figs.${i}.v`,x.v,'div','d')}${P(`figs.${i}.t`,x.t)}${TB('figs',i)}</div>`).join('') + (ED?`<div>${ADD('figs')}</div>`:'');
   $('L_caps').innerHTML = L.caps.map((x,i)=>`<div class="cap it">${P(`caps.${i}.t`,x.t,'h3')}${P(`caps.${i}.d`,x.d,'p','m')}<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8">${ICO[x.i]||ICO.b}</svg>${TB('caps',i)}</div>`).join('') + ADD('caps');
   $('L_fmt').innerHTML = L.fmt.map((x,i)=>`<figure class="it"><div class="pic" style="position:relative"><img src="${src(x.img)}" alt="${esc(x.t)}" loading="lazy">${IMGB(`fmt.${i}.img`)}</div>${P(`fmt.${i}.t`,x.t,'h3')}${P(`fmt.${i}.d`,x.d,'p','m')}${TB('fmt',i)}</figure>`).join('') + (ED?`<div>${ADD('fmt')}</div>`:'');

@@ -8,7 +8,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const SECTIONS = ["hero", "clients", "manifeste", "expertises", "formats", "travaux", "methode", "fondateur", "secteurs", "offres", "contact"];
-const LISTS = ["tiles", "logos", "figs", "caps", "fmt", "cases", "steps", "sect", "plans", "addons"];
+const LISTS = ["tiles", "logos", "marques", "figs", "caps", "fmt", "cases", "steps", "sect", "plans", "addons"];
 
 // Prix DeepSeek deepseek-flash au tarif plein (heures de pointe), en dollars par million de jetons : estimation prudente.
 const PRICE = { hit: 0.006, miss: 0.3, out: 1.2 };
@@ -30,7 +30,7 @@ Tu reçois le contenu actuel du site en JSON et une demande écrite par le propr
 
 Structure du contenu :
 - "t" : textes fixes du site, clé -> texte (titres, paragraphes, boutons). Tu modifies la valeur, jamais les clés.
-- "L" : listes. tiles (photos du mur vidéo : img, t), logos (clients : img, t), figs (chiffres clés : v, t),
+- "L" : listes. tiles (photos du mur vidéo : img, t), logos (clients : img, t), marques (grandes marques avec lesquelles le fondateur a collaboré personnellement : t), figs (chiffres clés : v, t),
   caps (expertises : i parmi a..h, t, d), fmt (formats : img, t, d),
   cases (études de cas : logo, photo, name, meta, g = [{l: nom de plateforme, s: [{v: chiffre, t: libellé}]}]),
   steps (méthode : t, d), sect (secteurs : t, d), plans (offres : t, v, u, tag, items[]), addons (options : t, d).

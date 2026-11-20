@@ -104,6 +104,15 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   .tg{display:grid}
   .comp{padding-bottom:max(10px,env(safe-area-inset-bottom))}
 }
+.aud{display:flex;gap:12px;align-items:center;margin:6px 0 8px}
+.aud .ring{--v:0;flex:none;width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--c,#25d366) calc(var(--v)*1%),#e9edef 0);display:grid;place-items:center;transition:--v 1s}
+.aud .ring b{width:50px;height:50px;border-radius:50%;background:#fff;display:grid;place-items:center;font:700 19px Inter;color:#111b21}
+.crit{margin:6px 0 2px;display:grid;gap:7px}
+.crit div{font-size:12.5px;line-height:1.3}
+.crit .bar{height:6px;border-radius:9px;background:#e9edef;overflow:hidden;margin:3px 0 1px}
+.crit .bar i{display:block;height:100%;border-radius:9px;width:0;transition:width .9s ease}
+.crit small{color:#667781}
+.fixall{display:block;width:100%;margin-top:9px;font:600 14px Inter;background:#25d366;color:#fff;border:0;border-radius:10px;padding:10px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -114,6 +123,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="ch" id="ch"><div class="av"><i></i></div><div class="hd"><b>Mon site Flova</b><span id="st">en ligne</span><span class="pv" id="pv"></span></div><button class="tg" id="tg" type="button" aria-label="Afficher la conversation">▴</button></div>
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <div class="chips" id="chips">
+      <button type="button">📊 Analyse mon site et note-le sur 100</button>
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
       <button type="button">🌐 Trouve mon nom de domaine</button>
       <button type="button">💡 Donne-moi 3 idées pour mon site</button>
@@ -312,6 +322,16 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
           const d = btn.dataset.d; b.querySelectorAll('[data-d]').forEach(x => x.disabled = true); btn.textContent = 'Réservation…';
           await buyDomain(d, btn);
         }));
+      } else if (j.type === 'audit') {
+        const col = v => v >= 75 ? '#25d366' : v >= 55 ? '#f5a623' : '#e5484d';
+        const b = bubble(`<div class="aud"><div class="ring" style="--c:${col(j.note)}"><b>0</b></div><div><b>Ton site : ${j.note}/100</b>\n${esc(j.resume || '')}</div></div><div class="crit">${(j.criteres || []).map(c => `<div><b>${esc(c.nom)}</b> · ${c.note}/100<div class="bar"><i style="background:${col(c.note)}" data-w="${c.note}"></i></div><small>${esc(c.pourquoi)}</small></div>`).join('')}</div>${j.tout ? '<button type="button" class="fixall">✨ Tout corriger d’un coup</button>' : ''}`, 'in');
+        const ring = b.querySelector('.ring'), num = ring.querySelector('b');
+        let k = 0; const t0 = performance.now();
+        const anim = t => { const p = Math.min(1, (t - t0) / 1100); k = Math.round(j.note * (1 - Math.pow(1 - p, 3))); ring.style.setProperty('--v', k); num.textContent = k; if (p < 1) requestAnimationFrame(anim); };
+        requestAnimationFrame(anim);
+        setTimeout(() => b.querySelectorAll('.bar i').forEach(i => i.style.width = i.dataset.w + '%'), 60);
+        const fx = b.querySelector('.fixall'); if (fx) fx.addEventListener('click', () => { fx.disabled = true; fx.textContent = 'Je corrige tout…'; ask(j.tout); });
+        if (j.choix && j.choix.length) bubble('Ou touche une correction à la fois :', 'in');
       } else if (j.type === 'offre') {
         bubble('⭐ ' + esc(j.resume), 'in');
       } else if (j.type === 'conseil') {

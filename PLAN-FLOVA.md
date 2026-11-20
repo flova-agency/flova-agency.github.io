@@ -35,6 +35,21 @@ Promesse faite à Fukay le 19/11 : une mise à jour par jour pendant 7 jours, pu
 - [ ] **22. Achat de nom de domaine sans intervention** — Paiement du client par carte ou Bancontact (Stripe), puis achat à son nom et branchement automatiques (Vercel), renouvellement annuel, remboursement automatique en cas d'échec, plafond de 60 € et marge de 3 €. Code en ligne (fonction flova-domaine) ; interface testée avec des réponses simulées. Bloquant : Karim se connecte une fois à Vercel et à Stripe pour créer les deux clés (VERCEL_TOKEN, STRIPE_SECRET_KEY).
 - [ ] **23. Tests réels du parcours complet par Karim sur son téléphone, puis activation de l'IA pour Fukay (étape 7).**
 
+## Version 11 h (nuit du 20/11) — demandée par Karim à 3 h 35 : 3 à 4 fois plus évoluée, éblouissante
+
+Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne, cochée avec preuve.
+
+- [ ] **24. Idées suivantes après chaque changement** — après chaque modification, l'assistant propose 3 idées concrètes à toucher, adaptées au site. Fait si : 3 puces apparaissent après une modification et une puce touchée s'applique.
+- [ ] **25. « Analyse mon site » : note sur 100 et corrections en un toucher** — l'assistant note le site (clarté, appel à l'action, confiance, référencement Google, téléphone) et propose 5 corrections applicables. Fait si : la note s'affiche en moins de 15 s et « Tout corriger » s'applique et s'annule.
+- [ ] **26. Trois propositions d'ambiance au choix** — « change le style » donne 3 versions à prévisualiser dans le site avant de choisir. Fait si : bascule entre les 3 sans enregistrer, puis « Garder celle-ci » enregistre.
+- [ ] **27. Historique visuel des versions** — liste datée des versions avec « revenir à celle-ci ». Fait si : retour à une version de plus de 2 crans, puis retour à la dernière.
+- [ ] **28. Aperçu Google et partage** — aperçu du résultat Google (titre et description), QR code du site à télécharger, bouton de partage WhatsApp. Fait si : le QR scanné ouvre le site et l'aperçu change quand l'assistant modifie la description.
+- [ ] **29. Statistiques de visites sans cookie** — visites du jour, de la semaine, part sur téléphone, langues, sections les plus vues. Fait si : une visite test apparaît en moins de 10 s et rien d'identifiant n'est stocké.
+- [ ] **30. Messages reçus par le formulaire de contact dans le studio** — Fait si : un message envoyé depuis le site apparaît dans le studio avec réponse en un toucher (mail).
+- [ ] **31. Traduction plus rapide avec progression visible** — Fait si : moins de 15 s pour une langue, et l'écran montre l'avancement.
+- [ ] **32. Régression complète et gel à 10 h** — assistant, studio, démo, sécurité, tous verts sur la version en ligne.
+- [ ] **33. PDF des nouveautés pour Karim avant 10 h 45.**
+
 ## Liaison usine (J+2 à J+4)
 
 - [ ] **12. USINE_KEY et relève automatique depuis cerveau-1** — Fait si : une demande approuvée devient une fiche `usine/*`, la branche est relue et fusionnée par le pilote, la demande passe à « en ligne » et l'auteur reçoit le mail, le tout en moins d'une heure de bout en bout avec une demande test.

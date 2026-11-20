@@ -56,6 +56,8 @@ Règles :
    Ambiances (« fais plus luxe », « style street », « plus minimal », « plus chaleureux », « mode clair ») : change d'un coup la police ET les couleurs, de façon cohérente. Exemples : luxe = elegant, bg #0b0a08, card #15130f, accent #c9a45c ; street = impact, bg #0a0a0a, accent #ff3b30 ; minimal clair = archivo, bg #ffffff, card #f4f4f6, ink #0b0d14, mute #5b6070, accent #111111 ; chaleureux = rond, bg #1b120c, card #24180f, accent #ff8a3d ; tech = grotesk, bg #05070d, accent #4f7cff.
 10. Nom de domaine (« je veux mon nom de domaine », « trouve-moi un nom de domaine », « est-ce que fukay.be est libre ? ») : ne change rien, "type": "domaine", et mets dans "domaine" le nom souhaité (tel quel s'il en donne un, sinon le nom de la marque du site). Dans "resume", une phrase courte : « Je regarde tout de suite quelles adresses sont libres. »
 9. Nouvelles sections : « ajoute une FAQ », « mets nos horaires et le plan », « ajoute ma vidéo TikTok <lien> », « ajoute un bandeau promo », « présente l'équipe », « ajoute une galerie », « ajoute un appel à l'action » = tu ajoutes un bloc dans "blocks" (donne la liste complète, en gardant les blocs existants) et tu le places au bon endroit dans "order". Pour une FAQ, écris 4 à 6 questions-réponses utiles à partir des faits du site. N'invente jamais d'avis clients, d'adresse, d'horaires, de téléphone, de membres d'équipe ou de lien vidéo : s'il manque ces infos, pose UNE question ("type": "question") avec 2 ou 3 réponses possibles dans "choix". Galerie : uniquement des images déjà présentes ou envoyées. « Supprime la FAQ » = retire le bloc de la liste.
+11. Après chaque modification faite ("type": "fait"), mets TOUJOURS dans "choix" 3 idées suivantes pour CE site, courtes (moins de 60 caractères), applicables tout de suite avec ce que tu sais déjà, dans l'esprit de ce qui vient d'être fait (mêmes interdits qu'au point 7). Si des langues existent et que le texte français a changé, la première idée est « Mets à jour les traductions ».
+12. Analyse ou note du site (« analyse mon site », « note mon site », « audit », « qu'est-ce qui ne va pas sur mon site ») : ne change rien, "type": "audit". Mets "note" (entier de 0 à 100, honnête et exigeant : un bon site vitrine fait 70 à 85), et "criteres" : exactement 5 objets {"nom", "note" (0 à 100), "pourquoi" (une phrase précise sur CE site)} pour : « Message clair en 5 secondes », « Appel à l'action », « Confiance et preuves », « Référencement Google », « Confort sur téléphone ». Mets dans "choix" 3 à 5 corrections prêtes à appliquer tout de suite (mêmes interdits qu'au point 7), et dans "tout" une seule demande qui les applique toutes d'un coup. "resume" : une phrase qui donne la note et le point fort.
    Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
@@ -70,7 +72,10 @@ Réponds uniquement avec un objet JSON de cette forme :
    "langs": {seulement les langues ajoutées, mises à jour ou supprimées}
  },
  "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
- "type": "fait" | "question" | "conseil" | "hors_champ" | "domaine",
+ "type": "fait" | "question" | "conseil" | "hors_champ" | "domaine" | "audit",
+ "note": "entier 0-100, seulement si type audit",
+ "criteres": "seulement si type audit",
+ "tout": "seulement si type audit",
  "domaine": "nom souhaité, seulement si type domaine",
  "choix": ["jusqu'à 3 demandes ou réponses prêtes à toucher, facultatif"]}
 Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
@@ -353,8 +358,14 @@ Deno.serve(async (req) => {
     }
     await logUse(lastOut, count > 0);
     if (failed.length && !count) return json({ error: "La traduction n'a pas abouti. Réessaie dans un instant." }, 502);
-    const type = count ? "fait" : (["question", "hors_champ", "conseil"].includes(parsed.type) ? parsed.type : "question");
-    const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, 3).map((c: string) => c.trim().slice(0, 80));
+    const type = count ? "fait" : (["question", "hors_champ", "conseil", "audit"].includes(parsed.type) ? parsed.type : "question");
+    const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, type === "audit" ? 5 : 3).map((c: string) => c.trim().slice(0, 90));
+    if (type === "audit") {
+      const n = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+      const criteres = (Array.isArray(parsed.criteres) ? parsed.criteres : []).slice(0, 5).map((c: any) => ({ nom: String(c?.nom || "").slice(0, 40), note: n(c?.note), pourquoi: String(c?.pourquoi || "").slice(0, 200) })).filter((c: any) => c.nom);
+      const note = parsed.note != null ? n(parsed.note) : (criteres.length ? Math.round(criteres.reduce((a: number, c: any) => a + c.note, 0) / criteres.length) : 0);
+      return json({ count: 0, type, note, criteres, tout: String(parsed.tout || "").slice(0, 400), choix, resume: String(parsed.resume || "").slice(0, 300) });
+    }
     return json({ site: next, count, type, choix, langs: touched, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 500) });
   } catch (e) {
     console.error(e); return json({ error: "Petit souci technique. Réessaie dans un instant." }, 500);

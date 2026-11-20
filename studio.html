@@ -160,12 +160,21 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 .msg p{margin:4px 0 6px;white-space:pre-wrap;color:#3b4a54;max-height:7.2em;overflow:hidden}
 .msg .act{display:flex;gap:6px;flex-wrap:wrap}.msg .act a{font:600 12.5px Inter;text-decoration:none;color:#008069;background:#fff;border:1px solid #d1d7db;border-radius:999px;padding:5px 10px}
 #chips [data-msgs] em{font-style:normal;background:#25d366;color:#fff;border-radius:999px;padding:0 6px;margin-left:5px;font-size:12px}
+.stybar{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:6px;background:rgba(17,27,33,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:999px;padding:6px 7px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+.stybar.on{display:flex}
+.stybar button{border:0;cursor:pointer;font:600 13px Inter;border-radius:999px}
+.stybar .d{width:30px;height:30px;padding:0;border:2px solid rgba(255,255,255,.25);position:relative;overflow:hidden}
+.stybar .d i{position:absolute;right:4px;bottom:4px;width:11px;height:11px;border-radius:50%}
+.stybar .d.on{border-color:#25d366;box-shadow:0 0 0 2px rgba(37,211,102,.35)}
+.stybar .k{background:#25d366;color:#fff;padding:8px 13px}
+.stybar .x{background:transparent;color:#cfd6da;padding:8px 9px;font-size:15px}
 .fixall{display:block;width:100%;margin-top:9px;font:600 14px Inter;background:#25d366;color:#fff;border:0;border-radius:10px;padding:10px;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="top"><div class="logo"><i></i>FLOVA</div><small>Ton site qui obéit · build by Uxlab.ai</small></div>
 
+<div class="stybar" id="stybar" role="toolbar" aria-label="Choisir un style"></div>
 <main class="app">
   <section class="chat" aria-label="Conversation avec ton site">
     <div class="ch" id="ch"><div class="av"><i></i></div><div class="hd"><b>Mon site Flova</b><span id="st">en ligne</span><span class="pv" id="pv"></span></div><button class="tg" id="tg" type="button" aria-label="Afficher la conversation">▴</button></div>
@@ -340,6 +349,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     if (!editor) return startLogin();
     if (!ready) { bubble('Une seconde, ton site se charge…', 'in'); return; }
     if (apercuStyle) { apercuStyle = null; post({ type: 'apercu-site', site: cur }); }
+    $('stybar').classList.remove('on');
     busy = true; bubble(esc(instruction), 'out');
     let send = instruction;
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; }
@@ -400,11 +410,17 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         const st = j.styles, base = cur;
         const b = bubble('🎨 ' + esc(j.resume || 'Touche un style pour le voir sur ton site.') + '<div class="sty">' + st.map((x, i) => { const t = x.site.theme || {}; return `<button type="button" class="c" data-i="${i}"><span class="sw" style="background:${esc(t.bg || '#06070b')}"><u style="background:${esc(t.ink || '#fff')}"></u><s style="background:${esc(t.mute || '#999')}"></s><i style="background:${esc(t.accent || '#3b5bff')}"></i></span><span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span></button>`; }).join('') + '</div><div class="styk"><button type="button" class="k" disabled>Garder ce style</button><button type="button" class="r">Garder mon style actuel</button></div>', 'in');
         let sel = -1; const keep = b.querySelector('.k'), rest = b.querySelector('.r');
-        const show = (i, fold = true) => { sel = i; apercuStyle = st[i].site; post({ type: 'apercu-site', site: st[i].site }); b.querySelectorAll('.c').forEach((c, k) => c.classList.toggle('on', k === i)); keep.disabled = false; keep.textContent = 'Garder « ' + st[i].nom + ' »'; if (fold && mob.matches) sheet(false); };
+        const bar = $('stybar');
+        const barOff = () => bar.classList.remove('on');
+        bar.innerHTML = st.map((x, i) => { const t = x.site.theme || {}; return `<button type="button" class="d" data-i="${i}" aria-label="${esc(x.nom)}" style="background:${esc(t.bg || '#06070b')}"><i style="background:${esc(t.accent || '#3b5bff')}"></i></button>`; }).join('') + '<button type="button" class="k">Garder</button><button type="button" class="x" aria-label="Revenir à mon style">✕</button>';
+        const show = (i, fold = true) => { sel = i; apercuStyle = st[i].site; post({ type: 'apercu-site', site: st[i].site }); b.querySelectorAll('.c').forEach((c, k) => c.classList.toggle('on', k === i)); bar.querySelectorAll('.d').forEach((c, k) => c.classList.toggle('on', k === i)); keep.disabled = false; keep.textContent = 'Garder « ' + st[i].nom + ' »'; if (fold && mob.matches) { sheet(false); bar.classList.add('on'); } };
+        bar.querySelectorAll('.d').forEach(d => d.addEventListener('click', () => show(+d.dataset.i)));
+        bar.querySelector('.k').addEventListener('click', () => { barOff(); keep.click(); });
+        bar.querySelector('.x').addEventListener('click', () => { barOff(); rest.click(); });
         b.querySelectorAll('.c').forEach(c => c.addEventListener('click', () => show(+c.dataset.i)));
-        rest.addEventListener('click', () => { apercuStyle = null; post({ type: 'apercu-site', site: cur }); b.querySelectorAll('.c').forEach(c => c.classList.remove('on')); keep.disabled = true; keep.textContent = 'Garder ce style'; });
+        rest.addEventListener('click', () => { barOff(); apercuStyle = null; post({ type: 'apercu-site', site: cur }); b.querySelectorAll('.c').forEach(c => c.classList.remove('on')); keep.disabled = true; keep.textContent = 'Garder ce style'; });
         keep.addEventListener('click', async () => {
-          if (sel < 0 || busy) return; busy = true; keep.disabled = true; keep.textContent = 'Mise en ligne…';
+          if (sel < 0 || busy) return; barOff(); busy = true; keep.disabled = true; keep.textContent = 'Mise en ligne…';
           const avant = cur, apres = st[sel].site; const bad = await publish(apres); busy = false; apercuStyle = null;
           if (bad) { post({ type: 'apercu-site', site: avant }); keep.disabled = false; keep.textContent = 'Garder ce style'; return bubble('Je n’ai pas pu enregistrer ce style. Rien n’a bougé sur ton site.', 'in'); }
           hist.push(avant); cur = apres; b.querySelectorAll('.c,.r').forEach(x => x.disabled = true); keep.textContent = '✓ Gardé';

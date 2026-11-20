@@ -74,11 +74,16 @@ with sync_playwright() as p:
     nc=pg.locator('#msgs .sty').last.locator('.c').count(); b1=bg()
     pg.evaluate("[...document.querySelectorAll('#msgs .sty')].pop().scrollIntoView({block:'start'})"); pg.screenshot(path=f'/tmp/studio_{dev[:6]}_styles.png')
     pg.locator('#msgs .sty').last.locator('.c').nth(1).click(); pg.wait_for_timeout(1200); b2=bg(); pg.screenshot(path=f'/tmp/studio_{dev[:6]}_styles2.png')
+    if dev!='Desktop Chrome':
+        vis=pg.locator('#stybar.on').count()==1
+        pg.locator('#stybar .d').nth(2).click(); pg.wait_for_timeout(1000); b3=bg(); pg.screenshot(path=f'/tmp/studio_{dev[:6]}_stybar.png')
+        pg.locator('#stybar .d').nth(1).click(); pg.wait_for_timeout(800)
+        rec(E+' barre de style flottante', vis and b3!=b2 and bg()==b2, f'visible={vis} {b2}→{b3}→{bg()}')
     if pg.evaluate("getComputedStyle(document.querySelector('.chat')).getPropertyValue('--x')") is not None: pass
     try: pg.click('#ch',timeout=2000)
     except Exception: pass
     pg.wait_for_timeout(700); nw=len(writes); pg.locator('#msgs .styk .k').last.click(); pg.wait_for_timeout(3000)
-    rec(E+' 3 styles : aperçu puis garder', nc==3 and b1!=b2 and len(writes)>nw and 'style' in last(pg), f'cartes={nc} fond {b1}→{b2} | '+last(pg)[:60])
+    rec(E+' 3 styles : aperçu puis garder', nc==3 and b1!=b2 and len(writes)>nw and 'style' in last(pg) and pg.locator('#stybar.on').count()==0, f'cartes={nc} fond {b1}→{b2} | '+last(pg)[:60])
     badge=pg.locator('#chips [data-msgs] em').inner_text() if pg.locator('#chips [data-msgs] em').count() else ''
     n0=nin(pg); pg.locator('#chips [data-msgs]').click(); pg.wait_for_timeout(2500)
     rec(E+' messages : pastille, liste, répondre, marqués lus', badge=='1' and pg.locator('#msgs .msg').count()>=2 and pg.locator('#msgs .msg.nv a[href^="mailto:sara"]').count()==1 and pg.locator('#msgs .msg.nv a[href^="https://wa.me/32470"]').count()==1 and len(marks)>=1, f'pastille={badge} marqués={len(marks)}')

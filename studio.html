@@ -119,6 +119,17 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 .vers small{display:block;color:#667781;font-size:11.5px}
 .vers button{font:600 12.5px Inter;background:#fff;color:#008069;border:1px solid #d1d7db;border-radius:999px;padding:5px 10px;cursor:pointer;white-space:nowrap}
 .vers .on{background:#d9fdd3}
+.serp{border:1px solid #e3e6e8;border-radius:10px;padding:9px 11px;margin:6px 0;background:#fff;font-family:Arial,sans-serif}
+.serp .u{font-size:12px;color:#202124;display:flex;align-items:center;gap:6px}
+.serp .u i{width:18px;height:18px;border-radius:50%;background:#0b0d14;display:inline-grid;place-items:center;color:#fff;font:700 9px Arial;font-style:normal}
+.serp .h{color:#1a0dab;font-size:16px;line-height:1.3;margin:3px 0 2px}
+.serp .d{color:#4d5156;font-size:13px;line-height:1.4}
+.qrw{display:flex;gap:10px;align-items:center;margin:8px 0 4px}
+.qrw span{font-size:13.5px;line-height:1.35}
+.qrw canvas{width:116px;height:116px;border-radius:8px;border:1px solid #e3e6e8;flex:none;background:#fff}
+.shb{display:flex;flex-wrap:wrap;gap:6px}
+.shb a,.shb button{font:600 13px Inter;border:1px solid #d1d7db;background:#fff;color:#111b21;border-radius:999px;padding:7px 11px;cursor:pointer;text-decoration:none}
+.shb .wa{background:#25d366;color:#fff;border-color:#25d366}
 .fixall{display:block;width:100%;margin-top:9px;font:600 14px Inter;background:#25d366;color:#fff;border:0;border-radius:10px;padding:10px;cursor:pointer}
 </style>
 </head>
@@ -133,6 +144,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       <button type="button">📊 Analyse mon site et note-le sur 100</button>
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
       <button type="button" data-vers>🕓 Mes versions</button>
+      <button type="button" data-share>📲 Partager mon site</button>
       <button type="button">🌐 Trouve mon nom de domaine</button>
       <button type="button">💡 Donne-moi 3 idées pour mon site</button>
       <button type="button">✨ Rends le site plus luxe</button>
@@ -305,6 +317,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         if (Array.isArray(j.langs) && j.langs.length) setTimeout(() => post({ type: 'apercu-lang', lang: j.langs[0] }), 400);
           const b = bubble(`<span class="ok">✓ C’est en ligne.</span>\n${esc(j.resume)}\n<a data-ba>👁 Voir avant</a>   <a data-undo>↶ Annuler</a>`, 'in');
           b.querySelector('[data-undo]').addEventListener('click', undo);
+          const la = (avant && avant.links) || {}, lb = (apres && apres.links) || {};
+          if (lb.seoTitle !== la.seoTitle || lb.seoDesc !== la.seoDesc) { const h = location.host.replace(/^www\./, ''); const g = document.createElement('div'); g.className = 'serp'; g.innerHTML = `<div class="u"><i>${esc(h[0].toUpperCase())}</i>${esc(h)}</div><div class="h">${esc(lb.seoTitle || document.title)}</div><div class="d">${esc((lb.seoDesc || '').slice(0, 158))}</div>`; b.insertBefore(g, b.querySelector('[data-ba]')); }
           let vue = 'apres';
           b.querySelector('[data-ba]').addEventListener('click', e => {
             if (cur !== apres) { bubble('Cette version a déjà été remplacée par une plus récente.', 'in'); return; }
@@ -413,6 +427,27 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       k.querySelector('[data-undo]').addEventListener('click', undo); sheet(false);
     }));
   }
+  /* partage : aperçu Google, QR code, WhatsApp */
+  function loadQR() { return window.qrcode ? Promise.resolve() : new Promise((ok, ko) => { const x = document.createElement('script'); x.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'; x.onload = ok; x.onerror = ko; document.head.appendChild(x); }); }
+  async function partager() {
+    sheet(true);
+    const url = location.origin + '/', host = location.host.replace(/^www\./, '');
+    const L = (cur && cur.links) || {}, titre = L.seoTitle || document.title, desc = L.seoDesc || '';
+    const b = bubble(`📲 Voici ton site tel qu’il apparaît sur Google, et de quoi le partager :<div class="serp"><div class="u"><i>${esc(host.slice(0, 1).toUpperCase())}</i>${esc(host)}</div><div class="h">${esc(titre)}</div><div class="d">${esc(desc.length > 158 ? desc.slice(0, 155) + '…' : desc)}</div></div><div class="qrw"><canvas width="232" height="232" aria-label="QR code du site"></canvas><span>Scanne-le avec un téléphone : il ouvre ton site. Imprime-le sur ta vitrine, tes cartes ou tes flyers.</span></div><div class="shb"><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Découvre notre site : ' + url)}">WhatsApp</a><button type="button" data-cp>Copier le lien</button><button type="button" data-dl>Télécharger le QR</button>${navigator.share ? '<button type="button" data-sh>Partager…</button>' : ''}</div>`, 'in');
+    const cv = b.querySelector('canvas');
+    try {
+      await loadQR(); const q = qrcode(0, 'M'); q.addData(url); q.make();
+      const n = q.getModuleCount(), m = 2, sz = cv.width / (n + m * 2), c = cv.getContext('2d');
+      c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); c.fillStyle = '#0b0d14';
+      for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(Math.floor((k + m) * sz), Math.floor((r + m) * sz), Math.ceil(sz), Math.ceil(sz));
+    } catch (x) { cv.replaceWith(Object.assign(document.createElement('span'), { textContent: 'QR indisponible pour le moment.' })); }
+    b.querySelector('[data-cp]').addEventListener('click', async e => { try { await navigator.clipboard.writeText(url); e.target.textContent = 'Lien copié ✓'; } catch (x) { e.target.textContent = url; } });
+    b.querySelector('[data-dl]').addEventListener('click', () => { const big = document.createElement('canvas'); big.width = big.height = 1024; const g = big.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(cv, 0, 0, 1024, 1024); const a = document.createElement('a'); a.download = 'qr-' + host + '.png'; a.href = big.toDataURL('image/png'); a.click(); });
+    const sh = b.querySelector('[data-sh]'); if (sh) sh.addEventListener('click', () => navigator.share({ title: titre, url }).catch(() => {}));
+    const q2 = document.createElement('div'); q2.className = 'qr';
+    ['Rends ma description Google plus attirante', 'Optimise mon titre Google pour ma ville'].forEach(t => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; x.onclick = () => { q2.remove(); ask(t); }; q2.appendChild(x); });
+    msgs.appendChild(q2); msgs.scrollTop = msgs.scrollHeight;
+  }
   async function undo() {
     if (busy) return;
     if (!hist.length) return bubble('Rien à annuler.', 'in');
@@ -450,7 +485,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopMic(); });
   window.addEventListener('pagehide', stopMic);
   $('comp').addEventListener('submit', e => { e.preventDefault(); if (rec) { stopMic(); return; } const v = txt.value.trim(); if (v) ask(v); else if (!login) listen(); });
-  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } ask(b.textContent); });
+  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } if (b.dataset.share != null) { partager(); return; } ask(b.textContent); });
   $('att').addEventListener('click', () => $('pic').click());
 
   /* photo : réduite, envoyée dans le stockage du site, puis proposée à l'assistant */

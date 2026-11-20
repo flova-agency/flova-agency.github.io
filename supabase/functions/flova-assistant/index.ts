@@ -195,19 +195,21 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   for (const k of LISTS) if (Array.isArray(base.L?.[k])) textL[k] = base.L[k];
   const blk = Array.isArray(base.blocks) && base.blocks.length ? base.blocks.map((x: any) => ({ eyebrow: x.eyebrow, title: x.title, text: x.text, button: x.button, items: (x.items || []).map((i: any) => ({ q: i.q, a: i.a, name: i.name, role: i.role, text: i.text, t: i.t, d: i.d, h: i.h })) })) : null;
   /* découpage fin : chaque liste et chaque moitié des textes partent en parallèle */
-  const tk = Object.keys(base.t || {}), half = Math.ceil(tk.length / 2);
-  const tParts = [tk.slice(0, half), tk.slice(half)].map((ks) => Object.fromEntries(ks.map((k) => [k, base.t[k]])));
+  const tk = Object.keys(base.t || {}), CH = 14;
+  const tParts: any[] = []; for (let i = 0; i < tk.length; i += CH) tParts.push(Object.fromEntries(tk.slice(i, i + CH).map((k) => [k, base.t[k]])));
   const lkeys = Object.keys(textL).filter((k) => textL[k].length);
+  const lParts: [string, number, any[]][] = []; for (const k of lkeys) for (let i = 0; i < textL[k].length; i += 6) lParts.push([k, i, textL[k].slice(i, i + 6)]);
   const pc = callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600);
   const pd = blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null });
-  const [t1, t2, ...ls] = await Promise.all([
-    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[0] }), 6000),
-    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[1] }), 6000),
-    ...lkeys.map((k) => callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: { [k]: textL[k] } }), 6000)),
+  const all = await Promise.all([
+    ...tParts.map((part) => callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: part }), 4000)),
+    ...lParts.map(([k, , items]) => callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: { [k]: items } }), 4000)),
   ]);
-  for (const x of [t1, t2, ...ls]) if (x.out) await log(x.out);
-  const a = { data: t1.data?.t && t2.data?.t ? { t: { ...t1.data.t, ...t2.data.t } } : null };
-  const bL: any = {}; lkeys.forEach((k, i) => { const v = ls[i].data?.L?.[k]; if (Array.isArray(v)) bL[k] = v; });
+  await Promise.all(all.filter((x) => x.out).map((x) => log(x.out)));
+  const ts = all.slice(0, tParts.length), ls = all.slice(tParts.length);
+  const a = { data: ts.every((x) => x.data?.t) ? { t: Object.assign({}, ...ts.map((x) => x.data.t)) } : null };
+  const bL: any = {};
+  for (const k of lkeys) { const arr: any[] = []; let ok = true; lParts.forEach(([kk, i, items], j) => { if (kk !== k) return; const v = ls[j].data?.L?.[k]; if (Array.isArray(v) && v.length === items.length) arr.splice(i, items.length, ...v); else ok = false; }); if (ok && arr.length === textL[k].length) bL[k] = arr; }
   const b = { data: { L: bL } };
   const [c, d] = await Promise.all([pc, pd]);
   for (const x of [c, d]) if (x.out) await log(x.out);
@@ -322,6 +324,15 @@ Deno.serve(async (req) => {
     };
     // Deux essais : une réponse coupée ou mal formée est redemandée une fois, sans jamais montrer d'erreur technique.
     let parsed: any = null, lastOut: any = null;
+    {
+      const q = instruction.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const STEM: [RegExp, string, string][] = [[/\bangl/, "en", "l'anglais"], [/\b(neerland|flamand)/, "nl", "le néerlandais"], [/\ballemand/, "de", "l'allemand"], [/\bespagnol/, "es", "l'espagnol"], [/\bitalien/, "it", "l'italien"], [/\bturc/, "tr", "le turc"], [/\barabe/, "ar", "l'arabe"], [/\bportugais/, "pt", "le portugais"]];
+      const hits = STEM.filter(([re]) => re.test(q));
+      if (hits.length === 1 && q.length <= 70 && /^(ajoute|traduis|mets|fais|passe|je veux|cree)\b/.test(q) && !/( et |,|;|puis|aussi | sauf|seulement|uniquement|titre|bouton|section)/.test(q) && !(site?.langs || {})[hits[0][1]]) {
+        const [, code, nom] = hits[0];
+        parsed = { changes: { langs: { [code]: "traduire" } }, type: "fait", resume: `J'ai ajouté ${nom} : le site est traduit en entier et tes visiteurs choisissent leur langue en haut de page. Le français reste la version principale.`, choix: [code === "nl" ? "Ajoute aussi l'anglais" : "Ajoute aussi le néerlandais", "Donne-moi 3 idées pour mon site", "Analyse mon site et note-le sur 100"] };
+      }
+    }
     for (let essai = 0; essai < 2 && !parsed; essai++) {
       const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: payload });
       if (!r.ok) { if (essai === 1) return json({ error: "L'assistant ne répond pas pour le moment. Réessaie dans un instant." }, 502); continue; }

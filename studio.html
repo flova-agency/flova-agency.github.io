@@ -237,6 +237,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   function typing(on, kind) {
     let t = msgs.querySelector('.typing');
     const long = kind === 'tr' ? 20 : kind === 'an' ? 12 : 0;
+    if (on && t) { t.remove(); t = null; }
     if (on && !t) { t = document.createElement('div'); t.className = 'typing' + (long ? ' long' : ''); t.innerHTML = '<i></i><i></i><i></i><span></span>' + (long ? '<b class="pg"><u></u></b>' : ''); msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight; if (long) requestAnimationFrame(() => requestAnimationFrame(() => { const u = t.querySelector('.pg u'); if (u) { u.style.transitionDuration = long + 's'; u.style.width = '92%'; } })); }
     if (!on && t) t.remove();
     clearInterval(stT);

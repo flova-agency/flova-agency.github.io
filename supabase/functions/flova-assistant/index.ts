@@ -54,6 +54,7 @@ Règles :
 8. Langues : le site est multilingue. Le français ("t", "L") reste TOUJOURS la langue principale : ne le traduis jamais à sa place. « Traduis le site en anglais », « ajoute l'anglais », « mets le site en néerlandais » = tu ajoutes une version dans "langs" : "langs": {"en": "traduire"} (le site fait lui-même la traduction complète, naturelle et idiomatique ; tu n'écris aucune traduction). Codes : en, nl, de, es, it, tr, ar, pt. Les visiteurs choisissent ensuite leur langue avec le sélecteur en haut du site. « Supprime l'anglais » = "langs": {"en": null}. « Remets le site en français » : il l'est déjà, la base est en français ; dis-le simplement. « Mets à jour les traductions » = "langs": {chaque langue existante: "traduire"}. Après une modification du texte français, si des langues existent, propose dans "choix" « Mets à jour les traductions ». "type": "fait".
 6. Couleurs et ambiance : c'est une demande normale, "type": "fait". Change "theme" avec des couleurs harmonieuses, élégantes et lisibles (jamais criardes) : « fond rouge » = bg rouge profond (ex. #5c0a12) avec card un ton proche (#3f070d) et accent assorti ; « site clair / fond blanc » = bg #f6f7fb, card #ffffff, ink #0b0d14, mute #4e5468, soft #2b3040 ; « couleur de ma marque » donnée en mots ou en code = accent. « Remets les couleurs d'origine » = toutes les clés de theme à "". Le site corrige seul la lisibilité si besoin.
    Ambiances (« fais plus luxe », « style street », « plus minimal », « plus chaleureux », « mode clair ») : change d'un coup la police ET les couleurs, de façon cohérente. Exemples : luxe = elegant, bg #0b0a08, card #15130f, accent #c9a45c ; street = impact, bg #0a0a0a, accent #ff3b30 ; minimal clair = archivo, bg #ffffff, card #f4f4f6, ink #0b0d14, mute #5b6070, accent #111111 ; chaleureux = rond, bg #1b120c, card #24180f, accent #ff8a3d ; tech = grotesk, bg #05070d, accent #4f7cff.
+10. Nom de domaine (« je veux mon nom de domaine », « trouve-moi un nom de domaine », « est-ce que fukay.be est libre ? ») : ne change rien, "type": "domaine", et mets dans "domaine" le nom souhaité (tel quel s'il en donne un, sinon le nom de la marque du site). Dans "resume", une phrase courte : « Je regarde tout de suite quelles adresses sont libres. »
 9. Nouvelles sections : « ajoute une FAQ », « mets nos horaires et le plan », « ajoute ma vidéo TikTok <lien> », « ajoute un bandeau promo », « présente l'équipe », « ajoute une galerie », « ajoute un appel à l'action » = tu ajoutes un bloc dans "blocks" (donne la liste complète, en gardant les blocs existants) et tu le places au bon endroit dans "order". Pour une FAQ, écris 4 à 6 questions-réponses utiles à partir des faits du site. N'invente jamais d'avis clients, d'adresse, d'horaires, de téléphone, de membres d'équipe ou de lien vidéo : s'il manque ces infos, pose UNE question ("type": "question") avec 2 ou 3 réponses possibles dans "choix". Galerie : uniquement des images déjà présentes ou envoyées. « Supprime la FAQ » = retire le bloc de la liste.
    Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
 
@@ -69,7 +70,8 @@ Réponds uniquement avec un objet JSON de cette forme :
    "langs": {seulement les langues ajoutées, mises à jour ou supprimées}
  },
  "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
- "type": "fait" | "question" | "conseil" | "hors_champ",
+ "type": "fait" | "question" | "conseil" | "hors_champ" | "domaine",
+ "domaine": "nom souhaité, seulement si type domaine",
  "choix": ["jusqu'à 3 demandes ou réponses prêtes à toucher, facultatif"]}
 Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
 
@@ -207,6 +209,38 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   return Object.keys(tr.t).length > Object.keys(base.t || {}).length * 0.8 ? tr : null;
 }
 
+/* ---------- noms de domaine : disponibilité en direct ---------- */
+const TLDS = ["com", "be", "fr", "eu", "shop", "store", "net", "co"];
+const RDAP_OK = ["com", "net", "fr", "shop", "store", "co"];
+function slugs(raw: string) {
+  const base = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/^(https?:\/\/)?(www\.)?/, "");
+  const m = base.match(/^([a-z0-9-]+)\.([a-z]{2,6})$/);
+  const words = (m ? m[1] : base).replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 5);
+  if (!words.length) return { names: [], tld: null as string | null };
+  const out = new Set<string>([words.join(""), words.join("-")]);
+  return { names: [...out].filter(x => x.length >= 3 && x.length <= 40), tld: m ? m[2] : null };
+}
+async function isFree(d: string): Promise<boolean | null> {
+  try {
+    const r = await fetch(`https://dns.google/resolve?name=${d}&type=NS`, { signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    if (j.Status === 0) return false;
+    if (j.Status !== 3) return null;
+    const tld = d.split(".").pop()!;
+    if (!RDAP_OK.includes(tld)) return true;
+    const q = await fetch(`https://rdap.org/domain/${d}`, { signal: AbortSignal.timeout(5000) });
+    return q.status === 404 ? true : q.status === 200 ? false : null;
+  } catch { return null; }
+}
+async function checkDomains(raw: string) {
+  const { names, tld } = slugs(raw);
+  const list: string[] = [];
+  for (const n of names) for (const t of (tld ? [tld, ...TLDS.filter(x => x !== tld)] : TLDS)) list.push(`${n}.${t}`);
+  const uniq = [...new Set(list)].slice(0, 14);
+  const res = await Promise.all(uniq.map(async d => ({ d, libre: await isFree(d) })));
+  return res.sort((a, b) => Number(b.libre === true) - Number(a.libre === true)).slice(0, 8);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "méthode non permise" }, 405);
@@ -282,6 +316,13 @@ Deno.serve(async (req) => {
       if (!parsed || typeof parsed !== "object") { parsed = null; await logUse(out, false); console.error("réponse IA illisible, essai", essai + 1); }
     }
     if (!parsed) return json({ error: "Je n'ai pas bien compris. Reformule ta demande en une phrase simple." }, 502);
+    if (parsed.type === "domaine") {
+      await logUse(lastOut, false);
+      const voulu = String(parsed.domaine || instruction).slice(0, 80);
+      const domaines = await checkDomains(voulu);
+      const libres = domaines.filter(x => x.libre === true).length;
+      return json({ count: 0, type: "domaine", choix: [], domaines, resume: libres ? `Bonne nouvelle : ${libres} adresse${libres > 1 ? "s" : ""} libre${libres > 1 ? "s" : ""} pour « ${voulu} ». Touche celle que tu veux, je la réserve et la branche sur ton site.` : `Les adresses pour « ${voulu} » sont déjà prises. Donne-moi une variante (ville, métier, autre mot) et je cherche à nouveau.` });
+    }
     const planKey = demo ? "commerce" : String((await db.from("flova_settings").select("value").eq("key", "plan").maybeSingle()).data?.value || "commerce").replace(/"/g, "");
     const plan = PLANS[planKey] || PLANS.commerce;
     const cleaned = clean(parsed.changes || {}, site);

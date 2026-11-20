@@ -322,6 +322,7 @@ body.ed .edbar{display:flex}
 .mbox .x{justify-self:end;background:none;border:0;font-size:15px;color:#4e5468;cursor:pointer;min-height:36px}
 .mmsg{font-size:14px;min-height:20px;margin:0}
 .edlink{background:none;border:0;color:var(--mute);font:14px Inter;cursor:pointer;padding:0;text-decoration:underline}
+.done.sent [data-k=f_done],.done.sent #copy,.done.sent pre{display:none}.done.sent #how{font-weight:600}
 </style>
 </head>
 <body>
@@ -424,7 +425,7 @@ body.ed .edbar{display:flex}
     <p class="lead" data-k="c_lead">Quelques lignes suffisent. Nous revenons vers vous par e-mail avec nos tarifs et une première idée pour votre marque.</p>
     <p class="lead" style="margin-top:18px;overflow-wrap:anywhere"><span data-k="c_mail_l">Ou écrivez-nous :</span> <a class="mailto" style="color:#fff">Pro.fukay1070@hotmail.com</a></p>
   </div>
-  <form id="f" novalidate>
+  <form id="f" novalidate><input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     <div class="f"><label for="nom"><span data-k="f_nom">Nom et prénom</span></label><input id="nom" autocomplete="name"></div>
     <div class="f"><label for="ent"><span data-k="f_ent">Entreprise ou marque</span></label><input id="ent" autocomplete="organization"></div>
     <div class="f"><label for="mail">E-mail</label><input id="mail" type="email" autocomplete="email"></div>
@@ -1107,13 +1108,26 @@ $('edUse').addEventListener('click', async () => {
 });
 
 /* ---------- formulaire public ---------- */
-$('f').addEventListener('submit', e => {
+$('f').addEventListener('submit', async e => {
   e.preventDefault();
   const v = id => $(id).value.trim(), EMAIL = C.links.email || DEF.links.email;
   if (!v('nom') || !v('ent') || !/^\S+@\S+\.\S+$/.test(v('mail'))) { $('err').textContent = 'Merci d’indiquer votre nom, votre entreprise et une adresse e-mail valide.'; return; }
   $('err').textContent = '';
   const sujet = 'Demande de proposition – ' + v('ent');
   const corps = 'Bonjour Flova,\n\nJe souhaite recevoir vos tarifs et une proposition.\n\nNom : ' + v('nom') + '\nEntreprise : ' + v('ent') + '\nE-mail : ' + v('mail') + (v('tel') ? '\nTéléphone : ' + v('tel') : '') + '\nSecteur : ' + v('act') + '\nOffre : ' + v('pack') + (v('msg') ? '\n\nProjet : ' + v('msg') : '') + '\n\nMerci.';
+  const btn = $('f').querySelector('[type=submit]'), lab = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+  let envoye = false;
+  try {
+    const r = await fetch(SB_URL + '/functions/v1/flova-demande', { method: 'POST', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'contact', nom: v('nom'), entreprise: v('ent'), email: v('mail'), tel: v('tel'), message: 'Secteur : ' + v('act') + '\nOffre : ' + v('pack') + (v('msg') ? '\n\n' + v('msg') : ''), website: ($('f').querySelector('[name=website]') || {}).value || '', test: /[?&]contact=test\b/.test(location.search) }) });
+    envoye = r.ok && (await r.json()).ok === true;
+  } catch (x) {}
+  if (btn) { btn.disabled = false; btn.textContent = lab; }
+  if (envoye) {
+    $('txt').textContent = corps;
+    $('how').textContent = 'C’est envoyé ✓ Votre demande est bien arrivée chez Flova. Vous recevez une réponse très vite, à ' + v('mail') + '.';
+    $('done').classList.add('on'); $('done').classList.add('sent'); $('f').reset(); return;
+  }
   $('txt').textContent = 'À : ' + EMAIL + '\nObjet : ' + sujet + '\n\n' + corps;
   $('how').textContent = 'Votre messagerie va s’ouvrir. Si rien ne s’ouvre, copiez la demande et envoyez-la à ' + EMAIL + '.';
   $('done').classList.add('on');

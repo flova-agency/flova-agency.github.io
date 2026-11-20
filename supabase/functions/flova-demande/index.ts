@@ -33,13 +33,13 @@ function page(title: string, body: string, btn?: { href: string; label: string; 
 }
 const quote = (t: string) => `<div style="background:#f3f5fb;border-radius:12px;padding:14px 16px;margin:10px 0;white-space:pre-wrap">${esc(t)}</div>`;
 
-async function mail(to: string, subject: string, html: string) {
+async function mail(to: string, subject: string, html: string, replyTo?: string) {
   const key = Deno.env.get("RESEND_API_KEY");
   if (!key) return { ok: false, why: "clé d'envoi absente" };
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "Flova Agency <noreply@flovaagency.com>", to: [to], reply_to: OWNER, subject, html }),
+    body: JSON.stringify({ from: "Flova Agency <noreply@flovaagency.com>", to: [to], reply_to: replyTo || OWNER, subject, html }),
   });
   return { ok: r.ok, why: r.ok ? "" : String(r.status) };
 }
@@ -52,6 +52,35 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const db = admin();
+
+    /* 0. Un visiteur envoie le formulaire de contact du site : enregistré, visible dans le studio, et mail au propriétaire */
+    if (body.action === "contact") {
+      const S = (v: unknown, n: number) => String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, n);
+      const f = { nom: S(body.nom, 80), entreprise: S(body.entreprise, 120), email: S(body.email, 160).toLowerCase(), tel: S(body.tel, 40), message: String(body.message ?? "").slice(0, 2000).trim() };
+      if (!f.nom || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email)) return json({ error: "Merci d'indiquer votre nom et une adresse e-mail valide." }, 400);
+      if (body.website) return json({ ok: true });
+      const ipRaw = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+      const ip = ipRaw ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ipRaw + new Date().toISOString().slice(0, 10))))).slice(0, 8).map(b => b.toString(16).padStart(2, "0")).join("") : "";
+      const hAgo = new Date(Date.now() - 3600e3).toISOString();
+      const [{ count: parIp }, { count: tous }] = await Promise.all([
+        ip ? db.from("flova_messages").select("id", { count: "exact", head: true }).eq("ip", ip).gte("at", hAgo) : Promise.resolve({ count: 0 } as any),
+        db.from("flova_messages").select("id", { count: "exact", head: true }).gte("at", hAgo)]);
+      if ((parIp || 0) >= 5 || (tous || 0) >= 60) return json({ error: "Trop de messages envoyés d'un coup. Réessayez dans un moment." }, 429);
+      const test = body.test === true;
+      const { data: row, error } = await db.from("flova_messages").insert({ ...f, ip, test }).select("id").single();
+      if (error) return json({ error: "Envoi impossible pour le moment." }, 500);
+      let mailOk = false;
+      if (!test) {
+        const { data: c } = await db.from("flova_content").select("data").eq("id", "site").maybeSingle();
+        const { data: st } = await db.from("flova_settings").select("value").eq("key", "contact_email").maybeSingle();
+        const to = String((c?.data as any)?.links?.email || st?.value || "").replace(/"/g, "");
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+          const lignes = [["Nom", f.nom], ["Entreprise", f.entreprise], ["E-mail", f.email], ["Téléphone", f.tel]].filter(x => x[1]).map(([k, v]) => `<b>${esc(k)} :</b> ${esc(v)}`).join("<br>");
+          mailOk = (await mail(to, `Nouveau message de ${f.nom}${f.entreprise ? " (" + f.entreprise + ")" : ""}`, page("Nouveau message reçu sur ton site", `<p>${lignes}</p>${f.message ? quote(f.message) : ""}<p>Réponds simplement à ce mail : ta réponse part directement chez ${esc(f.nom)}. Le message est aussi dans ton studio, bouton « Messages ».</p>`), f.email)).ok;
+        }
+      }
+      return json({ ok: true, id: row.id, mail: mailOk });
+    }
 
     /* 1. Furkan envoie une demande */
     if (body.action === "send") {

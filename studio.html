@@ -37,7 +37,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 .b a{color:#027eb5;font-weight:600;text-decoration:none;cursor:pointer}
 .b .ok{color:#008069;font-weight:600}
 .qr{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:92%;margin:-2px 0 4px}
-.dom{display:grid;gap:8px;margin-top:10px}.dom div{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f6f8f7;border-radius:10px;padding:8px 10px;font-weight:600}.dom div.pris{opacity:.55;font-weight:500}.dom button{font:600 13.5px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.dom{display:grid;gap:8px;margin-top:10px}.dom div{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f6f8f7;border-radius:10px;padding:8px 10px;font-weight:600}.dom div.pris{opacity:.55;font-weight:500}.dform{display:grid;gap:7px;margin-top:10px}.dform input,.dform select{font:15px Inter;border:1px solid #d1d7db;border-radius:9px;padding:9px 10px;width:100%;background:#fff;color:#111b21}.dform .row{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dform button{font:600 15px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:11px 14px;cursor:pointer;margin-top:4px}
+.dom button{font:600 13.5px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .qr button{font:500 13.5px Inter;background:#fff;color:#008069;border:1px solid #c7e8df;border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
 .b .ux{display:inline-block;margin-top:8px;font:600 14px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:9px 16px;cursor:pointer}.b .ux:disabled{opacity:.6}
 .b .gg{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;width:100%;font:600 15px Inter;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:999px;padding:11px 16px;cursor:pointer}
@@ -309,9 +310,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         const b = bubble('🌐 ' + esc(j.resume || '') + '<div class="dom">' + (j.domaines || []).map(x => x.libre === true ? `<div><span>✅ ${esc(x.d)}</span><button type="button" data-d="${esc(x.d)}">Je la prends</button></div>` : `<div class="pris"><span>${x.libre === false ? '✖' : '?'} ${esc(x.d)}</span><span>${x.libre === false ? 'déjà prise' : 'à vérifier'}</span></div>`).join('') + '</div>', 'in');
         b.querySelectorAll('[data-d]').forEach(btn => btn.addEventListener('click', async () => {
           const d = btn.dataset.d; b.querySelectorAll('[data-d]').forEach(x => x.disabled = true); btn.textContent = 'Réservation…';
-          const { data: r, error: e2 } = await sb.functions.invoke('flova-demande', { body: { action: 'send', instruction: 'Réserver et brancher le nom de domaine ' + d + ' sur mon site', reply: 'Nom de domaine libre au ' + new Date().toLocaleString('fr-BE') } });
-          if (e2 || r?.error) { btn.disabled = false; btn.textContent = 'Je la prends'; return bubble('La réservation n’est pas passée. Réessaie dans un instant.', 'in'); }
-          bubble('C’est parti pour <b>' + esc(d) + '</b> ✓ La réservation est envoyée : dès qu’elle est validée, l’adresse est achetée à ton nom et branchée sur ton site, cadenas de sécurité compris. Tu reçois un e-mail à chaque étape.', 'in');
+          await buyDomain(d, btn);
         }));
       } else if (j.type === 'offre') {
         bubble('⭐ ' + esc(j.resume), 'in');
@@ -328,6 +327,42 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       }
     } catch (x) { typing(false); bubble('Petit souci de connexion. Réessaie dans un instant.', 'in'); sheet(true); }
     busy = false;
+  }
+  /* achat de nom de domaine : formulaire du titulaire, prix, paiement, puis tout est automatique */
+  const DF = 'https://nhukbglercraslszazan.supabase.co/functions/v1/flova-domaine';
+  async function dcall(body) { const { data, error } = await sb.functions.invoke('flova-domaine', { body }); if (error) { let m = null; try { m = (await error.context.json()); } catch (x) {} return m || { error: 'Petit souci de connexion.' }; } return data; }
+  async function buyDomain(d, btn) {
+    const ready = await dcall({ action: 'pret' });
+    if (!ready?.pret) {
+      const { data: r, error: e2 } = await sb.functions.invoke('flova-demande', { body: { action: 'send', instruction: 'Réserver et brancher le nom de domaine ' + d + ' sur mon site', reply: 'Nom de domaine libre' } });
+      if (e2 || r?.error) { btn.disabled = false; btn.textContent = 'Je la prends'; return bubble('La réservation n’est pas passée. Réessaie dans un instant.', 'in'); }
+      return bubble('C’est noté pour <b>' + esc(d) + '</b> ✓ L’achat en direct ouvre très bientôt : ta réservation est enregistrée et l’adresse sera branchée sur ton site, cadenas compris. Tu reçois un e-mail à chaque étape.', 'in');
+    }
+    const p = await dcall({ action: 'prix', domaine: d });
+    if (!p?.available) { btn.disabled = false; btn.textContent = 'Je la prends'; return bubble(esc(p?.error || 'Cette adresse n’est plus libre. Choisis-en une autre.'), 'in'); }
+    let m = {}; try { m = JSON.parse(localStorage.getItem('flova-titulaire') || '{}'); } catch (x) {}
+    const v = k => esc(m[k] || '');
+    const b = bubble(`<b>${esc(d)}</b> : ${p.eur.toFixed(2).replace('.', ',')} € pour un an, renouvelable.\nPour l’acheter à ton nom :<form class="dform"><div class="row"><input name="firstName" placeholder="Prénom" value="${v('firstName')}" autocomplete="given-name" required><input name="lastName" placeholder="Nom" value="${v('lastName')}" autocomplete="family-name" required></div><input name="email" type="email" placeholder="E-mail" value="${v('email')}" autocomplete="email" required><input name="phone" type="tel" placeholder="Téléphone" value="${v('phone')}" autocomplete="tel" required><input name="address1" placeholder="Adresse" value="${v('address1')}" autocomplete="street-address" required><div class="row"><input name="zip" placeholder="Code postal" value="${v('zip')}" autocomplete="postal-code" required><input name="city" placeholder="Ville" value="${v('city')}" autocomplete="address-level2" required></div><select name="country">${[['BE','Belgique'],['FR','France'],['NL','Pays-Bas'],['LU','Luxembourg'],['MA','Maroc'],['DE','Allemagne'],['CH','Suisse'],['CA','Canada']].map(([c, n]) => `<option value="${c}"${(m.country || 'BE') === c ? ' selected' : ''}>${n}</option>`).join('')}</select><button type="submit">Payer ${p.eur.toFixed(2).replace('.', ',')} € et activer</button></form>`, 'in');
+    sheet(true);
+    b.querySelector('form').addEventListener('submit', async e => {
+      e.preventDefault(); const f = e.target, sub = f.querySelector('button');
+      const contact = Object.fromEntries(new FormData(f).entries());
+      try { localStorage.setItem('flova-titulaire', JSON.stringify(contact)); } catch (x) {}
+      sub.disabled = true; sub.textContent = 'Ouverture du paiement…';
+      const r = await dcall({ action: 'payer', domaine: d, contact });
+      if (!r?.url) { sub.disabled = false; sub.textContent = 'Réessayer'; return bubble(esc(r?.error || 'Le paiement n’est pas disponible pour le moment.'), 'in'); }
+      location.href = r.url;
+    });
+  }
+  async function followDomain(d) {
+    const w = bubble('Paiement reçu ✓ J’achète <b>' + esc(d) + '</b> à ton nom et je la branche sur ton site…', 'in'); sheet(true);
+    for (let i = 0; i < 40; i++) {
+      const r = await dcall({ action: 'etat', domaine: d });
+      if (r?.etat === 'en_ligne') return bubble('<span class="ok">✓ ' + esc(d) + ' est à toi et branchée sur ton site.</span>\nLe cadenas de sécurité s’active dans quelques minutes, le temps qu’internet la découvre. Tu as reçu un e-mail de confirmation.', 'in');
+      if (r?.etat === 'rembourse') return bubble('L’adresse ' + esc(d) + ' n’a pas pu être achetée : tu es remboursé en totalité, automatiquement. Choisis-en une autre quand tu veux.', 'in');
+      await new Promise(ok => setTimeout(ok, 4000));
+    }
+    bubble('C’est un peu plus long que prévu. Tu recevras un e-mail dès que ' + esc(d) + ' est en ligne.', 'in');
   }
   async function undo() {
     if (busy) return;
@@ -397,12 +432,16 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 
   /* démarrage */
   (async () => {
+    const qd = new URLSearchParams(location.search);
+    if (qd.get('domaine')) { const d = qd.get('domaine'), ok = qd.get('paye') === '1'; history.replaceState(null, '', '/studio'); window.__dom = { d, ok }; }
     let g = false; try { g = sessionStorage.getItem('flova-google') === '1'; sessionStorage.removeItem('flova-google'); } catch (x) {}
     if (/error_description=/.test(location.hash + location.search)) { history.replaceState(null, '', '/studio'); bubble('La connexion Google n’a pas abouti. Réessaie, ou utilise le code par e-mail.', 'in'); return startLogin(); }
     await new Promise(r => setTimeout(r, /access_token=|[?&]code=/.test(location.hash + location.search) ? 1200 : 0));
     if (/access_token=|[?&]code=/.test(location.hash + location.search)) history.replaceState(null, '', '/studio');
-    if (await checkEditor()) { editor = true; post && ready && post({ type: 'apercu-session' }); welcome(g); runAfter(); }
-    else {
+    const okEd = await checkEditor();
+    if (okEd) { editor = true; post && ready && post({ type: 'apercu-session' }); if (!window.__dom) welcome(g); runAfter(); }
+    if (window.__dom) { const x = window.__dom; window.__dom = null; if (x.ok) followDomain(x.d); else bubble('Paiement annulé : rien n’a été prélevé. Touche à nouveau l’adresse quand tu veux.', 'in'); }
+    if (!okEd) {
       const { data: s0 } = await sb.auth.getSession();
       if (s0.session) { const em = s0.session.user?.email || ''; await sb.auth.signOut(); bubble(`L’adresse <b>${esc(em)}</b> n’a pas l’accès à la modification de ce site. Connecte-toi avec une adresse autorisée.`, 'in'); }
       startLogin();

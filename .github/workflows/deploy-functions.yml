@@ -22,5 +22,6 @@ jobs:
         run: |
           for f in supabase/functions/*/; do
             n=$(basename "$f")
-            supabase functions deploy "$n" --project-ref nhukbglercraslszazan --use-api --yes
+            extra=""; [ "$n" = "flova-domaine" ] && extra="--no-verify-jwt"
+            supabase functions deploy "$n" --project-ref nhukbglercraslszazan --use-api --yes $extra
           done

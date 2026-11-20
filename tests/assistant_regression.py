@@ -10,7 +10,8 @@ CAS = [
   ("rend le site plus fun", "fait", None),
   ("Ajoute nos vues totales dans les chiffres", None, "periode"),                                           # 19/11 : il changeait la portée du 30 M+
   ("Mets le fond en rouge", "fait", "rouge"),                                                               # 20/11 : Karim trouvait l'assistant trop limité (design refusé)
-  ("Change la police du site", "hors_champ", None),
+  ("Change la police du site", "fait", None),
+  ("Ajoute une boutique en ligne avec paiement", "hors_champ", None),
   ("Traduis tout le site en anglais", "fait", "bilingue"),                                                # 20/11 : la traduction écrasait le français
   ("Remets les couleurs d'origine", None, None),
   ("Ajoute un client : Boulangerie Saïd", "fait", None),

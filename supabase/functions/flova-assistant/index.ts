@@ -321,6 +321,10 @@ Deno.serve(async (req) => {
       const voulu = String(parsed.domaine || instruction).slice(0, 80);
       const domaines = await checkDomains(voulu);
       const libres = domaines.filter(x => x.libre === true).length;
+      const exact = (voulu.toLowerCase().match(/[a-z0-9-]+\.[a-z]{2,6}/) || [])[0];
+      const ex = exact ? domaines.find(x => x.d === exact) : null;
+      if (ex && ex.libre === false) return json({ count: 0, type: "domaine", choix: [], domaines, resume: libres ? `${exact} est déjà prise, mais ${libres} variante${libres > 1 ? "s sont libres" : " est libre"}. Touche celle que tu veux, je la réserve et la branche sur ton site.` : `${exact} est déjà prise. Donne-moi une variante et je cherche à nouveau.` });
+      if (ex && ex.libre === true) return json({ count: 0, type: "domaine", choix: [], domaines, resume: `${exact} est libre ! Touche « Je la prends » et je la réserve et la branche sur ton site.` });
       return json({ count: 0, type: "domaine", choix: [], domaines, resume: libres ? `Bonne nouvelle : ${libres} adresse${libres > 1 ? "s" : ""} libre${libres > 1 ? "s" : ""} pour « ${voulu} ». Touche celle que tu veux, je la réserve et la branche sur ton site.` : `Les adresses pour « ${voulu} » sont déjà prises. Donne-moi une variante (ville, métier, autre mot) et je cherche à nouveau.` });
     }
     const planKey = demo ? "commerce" : String((await db.from("flova_settings").select("value").eq("key", "plan").maybeSingle()).data?.value || "commerce").replace(/"/g, "");

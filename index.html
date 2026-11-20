@@ -919,8 +919,8 @@ async function onSessionRun(s, ev) {
 $('edFab').addEventListener('click', () => enterEd());
 $('edMoreB').addEventListener('click', () => { const o = $('edbar').classList.toggle('open'); $('edMoreB').textContent = o ? 'Moins' : 'Plus'; });
 $('edbar').addEventListener('click', e => { if (e.target.closest('.edmore button')) { $('edbar').classList.remove('open'); $('edMoreB').textContent = 'Plus'; } });
-/* Assistant IA : masqué tant que Karim ne l'a pas validé. Pour le tester : ajouter ?ia=1 à l'adresse (retenu sur l'appareil). */
-const IA = (() => { try { if (/[?&]ia=1/.test(location.search)) localStorage.setItem('flova-ia', '1'); if (/[?&]ia=0/.test(location.search)) localStorage.removeItem('flova-ia'); return localStorage.getItem('flova-ia') === '1'; } catch (x) { return false; } })();
+/* Assistant IA : ouvert à tous les éditeurs depuis le 20/11 (choix de Karim). ?ia=0 le masque sur l'appareil. */
+const IA = (() => { try { if (/[?&]ia=0/.test(location.search)) localStorage.setItem('flova-ia', '0'); if (/[?&]ia=1/.test(location.search)) localStorage.removeItem('flova-ia'); return localStorage.getItem('flova-ia') !== '0'; } catch (x) { return true; } })();
 ['edAsk', 'edReq', 'edUse'].forEach(id => { if (!IA) $(id).hidden = true; });
 function enterEd() { $('edFab').hidden = true; ED = true; document.body.classList.add('ed'); render(); state(IA ? 'Demandez une modification avec ✦ Demander, ou touchez un texte pour le changer.' : 'Touchez un texte ou un chiffre pour le changer.'); }
 function leaveEd() { $('edFab').hidden = !user; ED = false; document.body.classList.remove('ed'); render(); }

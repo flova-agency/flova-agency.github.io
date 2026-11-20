@@ -220,7 +220,8 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   /* d'abord la mémoire commune : seules les phrases jamais traduites partent à l'IA */
   const allT = Object.keys(base.t || {});
   const listTexts: string[] = []; for (const k of LISTS) for (const it of (textL[k] || [])) listTexts.push(...itemTexts(it));
-  const mem = await tmGet(db, code, [...allT.map((k) => base.t[k]), ...listTexts]);
+  const seoT = [base.links?.seoTitle || "", base.links?.seoDesc || ""];
+  const mem = await tmGet(db, code, [...allT.map((k) => base.t[k]), ...listTexts, ...seoT]);
   const preT: any = {}; for (const k of allT) { const v = base.t[k]; if (!tmOk(v)) preT[k] = v; else if (mem.has(v)) preT[k] = mem.get(v); }
   const tk = allT.filter((k) => !(k in preT)), CH = 14;
   const tParts: any[] = []; for (let i = 0; i < tk.length; i += CH) tParts.push(Object.fromEntries(tk.slice(i, i + CH).map((k) => [k, base.t[k]])));
@@ -228,7 +229,8 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   const fromMem = (it: any) => { const o: any = { ...it }; for (const [f, v] of Object.entries(it || {})) if (!NOTR.has(f) && tmOk(v)) o[f] = mem.get(v as string); return o; };
   const lParts: [string, number, any[]][] = [], lMem: [string, number, any[]][] = [];
   for (const k of lkeys) for (let i = 0; i < textL[k].length; i += 6) { const items = textL[k].slice(i, i + 6); (items.every((it: any) => itemTexts(it).every((v) => mem.has(v))) ? lMem : lParts).push([k, i, items]); }
-  const pc = callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600);
+  const seoMem = seoT.every((v) => !tmOk(v) || mem.has(v));
+  const pc = seoMem ? Promise.resolve({ data: { seoTitle: mem.get(seoT[0]) ?? seoT[0], seoDesc: mem.get(seoT[1]) ?? seoT[1] }, out: null }) : callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: seoT[0], seoDesc: seoT[1] }), 600);
   const pd = blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null });
   const all = await Promise.all([
     ...tParts.map((part) => callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: part }), 4000)),

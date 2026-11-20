@@ -474,7 +474,7 @@ body.ed .edbar{display:flex}
     <button type="button" id="edLinks">Réglages</button>
     <button type="button" id="edAcc">Accès</button>
     <button type="button" id="edReq">Demandes</button>
-    <button type="button" id="edUse">Consommation IA</button>
+    <button type="button" id="edUse" hidden>Consommation IA</button>
     <button type="button" id="edOut">Se déconnecter</button>
   </div>
   <button type="button" id="edMoreB">Plus</button>
@@ -949,6 +949,8 @@ async function onSessionRun(s, ev) {
   if (rpcErr) { $('edFab').hidden = false; msg('Vérification momentanément impossible. Touchez « Modifier le site » dans un instant.', true); return; }
   if (!ok) { $('mLogin').classList.add('on'); msg('Cette adresse (' + (user.email || '') + ') n’a pas l’accès à la modification du site.', true); await sb.auth.signOut(); user = null; return; }
   $('mLogin').classList.remove('on');
+  /* les coûts ne sont visibles que par le propriétaire de Flova, jamais par le client */
+  sb.rpc('flova_is_owner').then(({ data }) => { $('edUse').hidden = !(data === true && IA); }, () => { $('edUse').hidden = true; });
   if (!ED && (JUST_LOGGED || WANT_ED || location.hash === '#modifier')) { JUST_LOGGED = false; enterEd(); } else if (!ED) $('edFab').hidden = false;
   if (/[?&]modifier\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#modifier');
 }

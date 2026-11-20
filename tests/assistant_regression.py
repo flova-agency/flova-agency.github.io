@@ -54,5 +54,30 @@ def run():
             print(('OK  ' if not err else 'ÉCHEC ') + dem[:60], '|', '; '.join(err) or typ)
         b.close()
     return ok
+
+# Cas ajoutés le 20/11 (version 11 h) : testés directement sur le serveur, avec le vrai contenu de la démo.
+import urllib.request, os
+FN = 'https://nhukbglercraslszazan.supabase.co/functions/v1/flova-assistant'
+KEY = 'sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB'
+SITE = json.load(open(os.path.join(os.path.dirname(__file__), 'site_demo.json')))
+def api(instr):
+    req = urllib.request.Request(FN, data=json.dumps({'demo': True, 'instruction': instr, 'site': SITE}).encode(), headers={'Content-Type': 'application/json', 'apikey': KEY, 'Authorization': 'Bearer ' + KEY})
+    t = time.time(); r = json.load(urllib.request.urlopen(req, timeout=150)); return r, time.time() - t
+def run_api():
+    ok = True
+    CAS2 = [
+      ("Analyse mon site et note-le sur 100", lambda r: r['type'] == 'audit' and 0 < r.get('note', 0) <= 100 and len(r.get('criteres', [])) == 5 and r.get('tout')),
+      ("Propose-moi 3 styles pour mon site", lambda r: r['type'] == 'styles' and len(r.get('styles', [])) == 3 and len({json.dumps(x['site'].get('theme')) for x in r['styles']}) == 3),
+      ("Rends le grand titre plus percutant", lambda r: r['type'] == 'fait' and len(r.get('choix', [])) == 3),
+      ("Ajoute l'espagnol", lambda r: r['type'] == 'fait' and 'es' in (r.get('site', {}).get('langs') or {}) and r['site']['t'].get('h1b') == SITE['t'].get('h1b')),
+      ("Rends le site plus beau", lambda r: r['type'] in ('fait', 'conseil', 'styles')),
+    ]
+    for dem, chk in CAS2:
+        try: r, dt = api(dem); good = bool(chk(r))
+        except Exception as e: r, dt, good = {'type': str(e)[:60]}, 0, False
+        ok &= good
+        print(('OK  ' if good else 'ÉCHEC ') + dem[:60], '|', r.get('type'), f'{dt:.1f} s')
+    return ok
 if __name__ == '__main__':
-    raise SystemExit(0 if run() else 1)
+    a = run_api(); b = run()
+    raise SystemExit(0 if a and b else 1)

@@ -44,9 +44,9 @@ def run():
             if ctl == 'bilingue':
                 sw = pg.frame_locator('#ifr').locator('#lgsw')
                 if not sw.is_visible(): err.append('sélecteur de langue absent')
-                pg.frame_locator('#ifr').locator('#lgsw [data-lang=fr]').click(); pg.wait_for_timeout(600)
+                pg.frame_locator('#ifr').locator('#lgsw select').select_option('fr'); pg.wait_for_timeout(600)
                 fr = pg.frame_locator('#ifr').locator('header.hero h1').inner_text()
-                pg.frame_locator('#ifr').locator('#lgsw [data-lang=en]').click(); pg.wait_for_timeout(600)
+                pg.frame_locator('#ifr').locator('#lgsw select').select_option('en'); pg.wait_for_timeout(600)
                 en = pg.frame_locator('#ifr').locator('header.hero h1').inner_text()
                 if not re.search(r'cr[ée]ons|attention', fr, re.I) or fr == en: err.append(f'FR « {fr} » / EN « {en} »')
             ok &= not err

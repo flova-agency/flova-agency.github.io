@@ -50,7 +50,7 @@ Règles :
 4. Images : réutilise uniquement des adresses déjà présentes dans le contenu ou données dans la demande (photos envoyées par le propriétaire), jamais l'image d'un autre client. Quand la demande fournit une photo sans préciser où la mettre, remplace l'image la plus logique et dis laquelle dans "resume". Pour un nouveau client ou une nouvelle étude de cas sans logo, mets "img": "" (ou "logo": "") : ses initiales s'affichent ; précise dans "resume" qu'on peut ajouter le logo avec le bouton « Changer l'image ». Pour une nouvelle photo sans image fournie, reprends une image déjà présente du même type.
 5. Écris en français soigné, dans le style du site : phrases courtes, chiffres au format « 1,2 M », « 27,8 K », « +430 ».
 7. Conseil, avis, idées, audit (« qu'est-ce que tu en penses », « comment améliorer mon site », « donne-moi des idées ») : ne change rien, "type": "conseil". Dans "resume", donne 3 améliorations précises pour CE site, chacune en une phrase avec le pourquoi (jamais de généralités). Mets ces 3 améliorations dans "choix", écrites comme des demandes prêtes à appliquer TOUT DE SUITE avec ce que tu sais déjà : jamais une idée qui demanderait un chiffre, un nom, un logo ou une info que tu n'as pas. Interdits dans les idées : étude de cas, témoignage, nouveau client, nouveau chiffre, prix, logo, photo à fournir. Autorisés : réécrire, raccourcir, réordonner, mettre en avant, masquer, traduire, reformuler un bouton ou une accroche, en utilisant uniquement ce qui est déjà dans le site. Ne fais pas de commentaire sur ta propre méthode (« je ne touche à rien… »), donne les idées directement.
-8. Langues : le site est multilingue. Le français ("t", "L") reste TOUJOURS la langue principale : ne le traduis jamais à sa place. « Traduis le site en anglais », « ajoute l'anglais », « mets le site en néerlandais » = tu ajoutes une version dans "langs" : "langs": {"en": {"t": {TOUTES les clés de "t" traduites}, "L": {TOUTES les listes, chacune en entier, avec seulement les textes traduits}, "links": {"seoTitle", "seoDesc" traduits}}}. Codes : en, nl, de, es, it, tr, ar, pt. Traduction naturelle et idiomatique comme un rédacteur natif (jamais mot à mot : « Nous créons l'attention » devient par exemple « We make people stop scrolling »), même ton ; garde noms propres, marques, chiffres, adresses d'images et toutes les autres clés des objets. Les visiteurs choisissent ensuite leur langue avec le sélecteur en haut du site. « Supprime l'anglais » = "langs": {"en": null}. « Remets le site en français » : il l'est déjà, la base est en français ; dis-le simplement. Après une modification du texte français, si des langues existent, propose dans "choix" « Mets à jour les traductions ». "type": "fait".
+8. Langues : le site est multilingue. Le français ("t", "L") reste TOUJOURS la langue principale : ne le traduis jamais à sa place. « Traduis le site en anglais », « ajoute l'anglais », « mets le site en néerlandais » = tu ajoutes une version dans "langs" : "langs": {"en": "traduire"} (le site fait lui-même la traduction complète, naturelle et idiomatique ; tu n'écris aucune traduction). Codes : en, nl, de, es, it, tr, ar, pt. Les visiteurs choisissent ensuite leur langue avec le sélecteur en haut du site. « Supprime l'anglais » = "langs": {"en": null}. « Remets le site en français » : il l'est déjà, la base est en français ; dis-le simplement. « Mets à jour les traductions » = "langs": {chaque langue existante: "traduire"}. Après une modification du texte français, si des langues existent, propose dans "choix" « Mets à jour les traductions ». "type": "fait".
 6. Couleurs et ambiance : c'est une demande normale, "type": "fait". Change "theme" avec des couleurs harmonieuses, élégantes et lisibles (jamais criardes) : « fond rouge » = bg rouge profond (ex. #5c0a12) avec card un ton proche (#3f070d) et accent assorti ; « site clair / fond blanc » = bg #f6f7fb, card #ffffff, ink #0b0d14, mute #4e5468, soft #2b3040 ; « couleur de ma marque » donnée en mots ou en code = accent. « Remets les couleurs d'origine » = toutes les clés de theme à "". Le site corrige seul la lisibilité si besoin.
    Restent hors de ta portée : polices, mise en page, taille des éléments, nouvelle page, nouvelle fonction, nouvelle section, vidéo hébergée. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, listes, sections, couleurs, liens) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
 
@@ -106,6 +106,7 @@ function clean(ch: any, prev: any) {
     if (!LANGS.includes(k)) continue;
     const v = cl[k];
     if (v === null || v === false) { if (out.langs[k]) { delete out.langs[k]; nl++; } continue; }
+    if (typeof v === "string") { out.pending = [...(out.pending || []), k]; continue; }
     if (!v || typeof v !== "object") continue;
     const tr: any = { t: { ...(out.langs[k]?.t || {}) }, L: { ...(out.langs[k]?.L || {}) }, links: { ...(out.langs[k]?.links || {}) } };
     for (const key of Object.keys(v.t || {})) if (key in out.t && typeof v.t[key] === "string") tr.t[key] = v.t[key];
@@ -132,6 +133,47 @@ function clean(ch: any, prev: any) {
   const links = ch?.links && typeof ch.links === "object" ? ch.links : {};
   for (const k of ["email", "tiktok", "instagram", "seoTitle", "seoDesc"]) if (typeof links[k] === "string" && links[k] !== out.links[k]) { out.links[k] = links[k]; n.links++; }
   return { site: out, count: n.t + n.L + n.hide + n.order + n.links + n.theme + nl, langs: Object.keys(cl).filter(k => LANGS.includes(k)) };
+}
+
+const LANG_FULL: Record<string, string> = { en: "anglais", nl: "néerlandais", de: "allemand", es: "espagnol", it: "italien", tr: "turc", ar: "arabe", pt: "portugais" };
+const TR_SYSTEM = (lang: string) => `Tu es un traducteur professionnel, rédacteur natif en ${lang}. Tu reçois un objet JSON de textes d'un site vitrine d'agence de vidéos courtes.
+Traduis chaque valeur texte en ${lang}, de façon naturelle et idiomatique (jamais mot à mot : « Nous créons l'attention » devient par exemple en anglais « We make people stop scrolling »), même ton, phrases courtes.
+Garde à l'identique : toutes les clés, les noms propres, les marques, les chiffres et leur format, les adresses (img, logo, photo, liens), les champs vides et la structure (mêmes listes, même nombre d'éléments, même ordre).
+Une clé dont le nom est "img", "logo", "photo" ou "i" ne se traduit jamais.
+Réponds uniquement avec l'objet JSON traduit, de même forme.`;
+async function callJson(key: string, system: string, user: string, max = 8000) {
+  for (let essai = 0; essai < 2; essai++) {
+    const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ model: Deno.env.get("FLOVA_MODEL") || "deepseek-flash", temperature: 0.2, max_tokens: max, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) });
+    if (!r.ok) continue;
+    const out = await r.json().catch(() => null);
+    const m = (out?.choices?.[0]?.message?.content || "").match(/\{[\s\S]*\}/);
+    try { if (m) return { data: JSON.parse(m[0]), out }; } catch { /* nouvel essai */ }
+  }
+  return { data: null, out: null };
+}
+/* traduit tout le site en deux appels parallèles (textes fixes, listes) : rapide et fiable */
+async function translateSite(key: string, code: string, base: any, log: (o: any) => unknown) {
+  const lang = LANG_FULL[code] || code;
+  const textL: any = {};
+  for (const k of LISTS) if (Array.isArray(base.L?.[k])) textL[k] = base.L[k];
+  const [a, b, c] = await Promise.all([
+    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: base.t || {} })),
+    callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: textL }), 12000),
+    callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600),
+  ]);
+  for (const x of [a, b, c]) if (x.out) await log(x.out);
+  if (!a.data?.t || !b.data?.L) return null;
+  const tr: any = { t: {}, L: {}, links: {} };
+  for (const k of Object.keys(base.t || {})) if (typeof a.data.t[k] === "string") tr.t[k] = a.data.t[k];
+  for (const k of LISTS) {
+    const src = base.L?.[k], dst = b.data.L[k];
+    if (!Array.isArray(src) || !Array.isArray(dst) || dst.length !== src.length) continue;
+    /* on garde les images et champs techniques de la version française */
+    tr.L[k] = dst.map((x: any, i: number) => { const o = { ...src[i], ...(x && typeof x === "object" ? x : {}) }; for (const f of ["img", "logo", "photo", "i"]) if (f in src[i]) o[f] = src[i][f]; return o; });
+  }
+  if (typeof c.data?.seoTitle === "string") tr.links.seoTitle = c.data.seoTitle;
+  if (typeof c.data?.seoDesc === "string") tr.links.seoDesc = c.data.seoDesc;
+  return Object.keys(tr.t).length > Object.keys(base.t || {}).length * 0.8 ? tr : null;
 }
 
 Deno.serve(async (req) => {
@@ -202,8 +244,17 @@ Deno.serve(async (req) => {
       if (!parsed || typeof parsed !== "object") { parsed = null; await logUse(out, false); console.error("réponse IA illisible, essai", essai + 1); }
     }
     if (!parsed) return json({ error: "Je n'ai pas bien compris. Reformule ta demande en une phrase simple." }, 502);
-    const { site: next, count, langs: touched } = clean(parsed.changes || {}, site);
+    const cleaned = clean(parsed.changes || {}, site);
+    const next = cleaned.site, touched = cleaned.langs;
+    let count = cleaned.count;
+    const pending: string[] = next.pending || []; delete next.pending;
+    let failed: string[] = [];
+    if (pending.length) {
+      const res = await Promise.all(pending.map(code => translateSite(key, code, next, (o: any) => logUse(o, true))));
+      res.forEach((tr, i) => { if (tr) { next.langs[pending[i]] = tr; count++; } else failed.push(pending[i]); });
+    }
     await logUse(lastOut, count > 0);
+    if (failed.length && !count) return json({ error: "La traduction n'a pas abouti. Réessaie dans un instant." }, 502);
     const type = count ? "fait" : (["question", "hors_champ", "conseil"].includes(parsed.type) ? parsed.type : "question");
     const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, 3).map((c: string) => c.trim().slice(0, 80));
     return json({ site: next, count, type, choix, langs: touched, resume: String(parsed.resume || (count ? "C'est fait." : "Rien n'a été changé.")).slice(0, 500) });

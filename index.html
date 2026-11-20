@@ -562,6 +562,7 @@ body.ed .edbar{display:flex}
 </div></div>
 
 <input type="file" id="pick" accept="image/*" hidden>
+<input type="file" id="pickm" accept="image/*" multiple hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
@@ -730,10 +731,10 @@ function render() {
 function renderBase() {
   applyTheme();
   const L = C.L;
-  const tileH = L.tiles.map(x => `<div class="tile"><img src="${src(x.img)}" alt=""><b>${esc(x.t)}</b></div>`);
+  const tileH = L.tiles.map(x => `<div class="tile"><img src="${src(x.img)}" alt="">${x.t ? `<b>${esc(x.t)}</b>` : ''}</div>`);
   const cols = [[], [], []]; tileH.forEach((h, i) => cols[i % 3].push(h));
   cols.forEach((c, k) => { const h = (c.length ? c : tileH).join(''); $('t' + (k + 1)).innerHTML = h + h + h; });
-  $('L_tiles').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">${L.tiles.map((x,i)=>`<div class="it" style="width:150px;border:1px solid var(--line);border-radius:12px;padding:8px;padding-top:46px"><img src="${src(x.img)}" alt="" style="aspect-ratio:9/16;object-fit:cover;border-radius:8px">${IMGB(`tiles.${i}.img`)}${P(`tiles.${i}.t`,x.t,'p','m')}${TB('tiles',i)}</div>`).join('')}</div>${ADD('tiles')}` : '';
+  $('L_tiles').innerHTML = ED ? `<button type="button" class="addb" data-act="mpick" style="margin-top:12px">📷 Remplacer toutes les photos d’ouverture</button><div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">${L.tiles.map((x,i)=>`<div class="it" style="width:150px;border:1px solid var(--line);border-radius:12px;padding:8px;padding-top:46px"><img src="${src(x.img)}" alt="" style="aspect-ratio:9/16;object-fit:cover;border-radius:8px">${IMGB(`tiles.${i}.img`)}${P(`tiles.${i}.t`,x.t,'p','m')}${TB('tiles',i)}</div>`).join('')}</div>${ADD('tiles')}` : '';
   const lg = L.logos.map(x => `<span>${logoH(x.img, x.t)}${esc(x.t)}</span>`).join('');
   $('marq').innerHTML = lg + lg + lg + lg;
   $('L_logos').innerHTML = ED ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">${L.logos.map((x,i)=>`<div class="it" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 10px;min-width:260px;padding-top:48px">${x.img ? `<img src="${src(x.img)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff">` : `<i class="ini">${ini(x.t)}</i>`}${IMGB(`logos.${i}.img`)}${P(`logos.${i}.t`,x.t,'b')}${TB('logos',i)}</div>`).join('')}</div>${ADD('logos')}` : '';
@@ -834,6 +835,7 @@ document.addEventListener('click', async e => {
   if (!ED) return;
   e.preventDefault();
   if (b.dataset.img) { pickFor = b.dataset.img; $('pick').value = ''; $('pick').click(); return; }
+  if (b.dataset.act === 'mpick') { $('pickm').value = ''; $('pickm').click(); return; }
   const a = b.dataset.act, L = C.L, l = b.dataset.l, i = +b.dataset.i;
   if (a === 'add') L[l].push(clone(BLANK[l]));
   else if (a === 'dup') L[l].splice(i + 1, 0, clone(L[l][i]));
@@ -866,6 +868,25 @@ $('pick').addEventListener('change', async () => {
     const url = sb.storage.from('flova').getPublicUrl(name).data.publicUrl;
     setP(pickFor, url); render(); save();
   } catch (x) { state('Image non envoyée : ' + (x.message || x)); }
+});
+/* plusieurs photos d'un coup : elles remplacent, dans l'ordre, les photos du mur d'ouverture */
+$('pickm').addEventListener('change', async () => {
+  const fs = [...$('pickm').files].slice(0, 12); if (!fs.length || !sb) return;
+  const urls = [];
+  try {
+    for (let k = 0; k < fs.length; k++) {
+      state(`Envoi des photos… ${k + 1} sur ${fs.length}`);
+      const blob = await shrink(fs[k], 1600);
+      const name = `media/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const { error } = await sb.storage.from('flova').upload(name, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error) throw error;
+      urls.push(sb.storage.from('flova').getPublicUrl(name).data.publicUrl);
+    }
+    const T = C.L.tiles;
+    urls.forEach((u, k) => { if (T[k]) { T[k].img = u; T[k].t = ''; } else T.push({ img: u, t: '' }); });
+    if (urls.length >= 3) T.splice(urls.length);
+    render(); save(); state(`✓ ${urls.length} photo${urls.length > 1 ? 's' : ''} en ligne.`);
+  } catch (x) { if (urls.length) { const T = C.L.tiles; urls.forEach((u, k) => { if (T[k]) T[k].img = u; }); render(); save(); } state('Photos non envoyées : ' + (x.message || x)); }
 });
 function shrink(file, max) {
   return new Promise((ok, ko) => {

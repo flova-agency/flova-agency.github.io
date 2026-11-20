@@ -111,7 +111,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="chips" id="chips">
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
       <button type="button">💡 Donne-moi 3 idées pour mon site</button>
-      <button type="button">🌍 Traduis tout le site en anglais</button>
+      <button type="button">🌍 Ajoute la version anglaise du site</button>
+      <button type="button">🌍 Ajoute le néerlandais</button>
       <button type="button">Ajoute un client : Boulangerie Saïd</button>
       <button type="button">Masque la section Offres</button>
       <button type="button">Mets le Contact juste après les Travaux</button>
@@ -213,6 +214,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       if (!r.ok || j.error) { bubble(esc(j.error || 'Petit souci de connexion. Réessaie dans un instant.'), 'in'); }
       else if (j.count > 0 && j.site) {
         const avant = cur; hist.push(cur); cur = j.site; post({ type: 'apercu-site', site: cur }); sheet(false);
+        if (Array.isArray(j.langs) && j.langs.length) setTimeout(() => post({ type: 'apercu-lang', lang: j.langs[0] }), 400);
         const apres = cur;
         const b = bubble(`<span class="ok">✓ C’est en ligne.</span>\n${esc(j.resume)}\n<a data-ba>👁 Voir avant</a>   <a data-undo>↶ Annuler</a>`, 'in');
         b.querySelector('[data-undo]').addEventListener('click', undo);

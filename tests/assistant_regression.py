@@ -9,7 +9,10 @@ CAS = [
   ("je veux parler aux commercants de la rue", "fait", "titre"),                                             # 19/11 : espace perdue dans le titre
   ("rend le site plus fun", "fait", None),
   ("Ajoute nos vues totales dans les chiffres", None, "periode"),                                           # 19/11 : il changeait la portée du 30 M+
-  ("Mets le fond en rouge", "hors_champ", None),
+  ("Mets le fond en rouge", "fait", "rouge"),                                                               # 20/11 : Karim trouvait l'assistant trop limité (design refusé)
+  ("Change la police du site", "hors_champ", None),
+  ("Traduis tout le site en anglais", "fait", "bilingue"),                                                # 20/11 : la traduction écrasait le français
+  ("Remets les couleurs d'origine", None, None),
   ("Ajoute un client : Boulangerie Saïd", "fait", None),
 ]
 def run():
@@ -34,6 +37,18 @@ def run():
             if ctl == 'periode':
                 figs = pg.frame_locator('#ifr').locator('#L_figs').inner_text()
                 if '30 M' in figs and 'été et automne 2026' not in figs: err.append('période du 30 M+ modifiée')
+            if ctl == 'rouge':
+                bg = pg.frame_locator('#ifr').locator('body').evaluate("b => getComputedStyle(b).backgroundColor")
+                r, g, bl = [int(x) for x in re.findall(r'\d+', bg)[:3]]
+                if not (r > g + 20 and r > bl + 20): err.append('fond pas rouge : ' + bg)
+            if ctl == 'bilingue':
+                sw = pg.frame_locator('#ifr').locator('#lgsw')
+                if not sw.is_visible(): err.append('sélecteur de langue absent')
+                pg.frame_locator('#ifr').locator('#lgsw [data-lang=fr]').click(); pg.wait_for_timeout(600)
+                fr = pg.frame_locator('#ifr').locator('header.hero h1').inner_text()
+                pg.frame_locator('#ifr').locator('#lgsw [data-lang=en]').click(); pg.wait_for_timeout(600)
+                en = pg.frame_locator('#ifr').locator('header.hero h1').inner_text()
+                if not re.search(r'cr[ée]ons|attention', fr, re.I) or fr == en: err.append(f'FR « {fr} » / EN « {en} »')
             ok &= not err
             print(('OK  ' if not err else 'ÉCHEC ') + dem[:60], '|', '; '.join(err) or typ)
         b.close()

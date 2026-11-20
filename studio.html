@@ -329,6 +329,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   }
   function welcome(first) {
     bubble((first ? 'C’est bon, tu es connecté ✓\n' : 'Salut 👋 ') + 'Dis-moi ce que tu veux changer sur ton site, à l’écrit ou à la voix 🎤. Je le fais et c’est en ligne tout de suite.\nTu peux toujours revenir en arrière avec ↶ Annuler.', 'in');
+    const k = 'flova-tour'; let vu = false; try { vu = localStorage.getItem(k) === '1'; localStorage.setItem(k, '1'); } catch (x) {}
+    if (!vu) bubble('<b>Ce que je sais faire en un message :</b>\n✏️ changer un texte, une photo, l’ordre des sections\n🎨 te proposer 3 styles à essayer sur ton site\n📊 noter ton site sur 100 et tout corriger d’un coup\n🌍 le traduire en 8 langues\n❓ ajouter une FAQ, des avis, tes horaires, une vidéo\n📈 te montrer tes visites · ✉️ tes messages · 📲 ton QR code\n🌐 trouver ton nom de domaine\nTouche une bulle en bas pour essayer.', 'in');
   }
 
   let apercuStyle = null;

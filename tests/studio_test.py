@@ -46,7 +46,8 @@ with sync_playwright() as p:
     pg.route('**/storage/v1/object/flova/**',lambda r: r.fulfill(status=200,content_type='application/json',body='{"Key":"flova/media/x.jpg"}'))
     E=dev
     pg.goto('https://flovaagency.com/studio'); pg.wait_for_timeout(5000)
-    rec(E+' accueil connecté', 'Dis-moi ce que tu veux changer' in last(pg), last(pg))
+    allin=pg.evaluate("[...document.querySelectorAll('#msgs .b.in')].map(b=>b.innerText).join(' | ')")
+    rec(E+' accueil connecté + présentation', 'Dis-moi ce que tu veux changer' in allin and 'Ce que je sais faire' in allin, allin[:90])
     rec(E+' pas de débordement', not pg.evaluate("document.documentElement.scrollWidth>innerWidth"))
     pg.screenshot(path=f'/tmp/studio_{dev[:6]}_1.png')
     n0=nin(pg); nw=len(writes); pg.fill('#txt','Ajoute un client : Boulangerie Saïd'); pg.click('#go'); wait(pg,n0)

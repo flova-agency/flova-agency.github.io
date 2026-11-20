@@ -32,5 +32,6 @@ Règle : chaque demande de Karim est inscrite ici au moment où elle est faite, 
 | 26 | Négocier des tarifs avec les fournisseurs | EN COURS | Crédits ChatGPT Business et Google à réclamer |
 | 27 | Cursor Ultra et Composer à exploiter | EN COURS | Ajoutés au routeur (en pause jusqu'au branchement) ; contrôle des abonnements non exploités |
 | 28 | Relire tout le fil avant le compactage, inscrire toutes les demandes ; règle immuable pour toutes les discussions et tous les modèles, en bon père de famille | FAIT (ce registre) | Règle inscrite dans le cerveau et les règles immuables |
+| 29 | Higgsfield, ElevenLabs, etc. : TOUS les comptes existants (ou à créer s'ils n'existent pas) doivent être fournisseurs de l'Ultra Premium, rien oublier (très important) | FAIT (liste) / EN COURS (branchement dans Flova) | usine.fournisseurs_ultra : 42 comptes + 14 à créer, 0 oublié (contrôle usine.ultra_oublis()) ; ajoutés : Jotform, PayPal, Zoom ; 5 déjà dans Flova, le reste à brancher |
 
 Demandes plus anciennes encore ouvertes (avant ce soir) : mode maître pour Karim après la démo ; publication de l'appli Google de connexion ; page /confidentialite ; prospect Krusty Game ; nettoyage des données de test (avec accord).

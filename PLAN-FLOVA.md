@@ -97,3 +97,6 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 5. **Tout ce qu'on sait déjà faire est offert en un clic** (appli iPhone via l'appli Flova + App Clips, traductions, domaines, statistiques…).
 6. **Chaque demande = une discussion avec sa mémoire** (en ligne depuis le 20/11).
 7. **Coût proche de zéro** : le routeur de quotas (usine.choisir_moteur) choisit le moteur selon la tâche, le prorata de quota restant avant réinitialisation, les pannes et le coût ; abonnements déjà payés d'abord (Composer, Cursor, Codex), payant ensuite.
+
+### Fournisseurs de l'Ultra Premium (fondateur, 21/11/2026 00 h 41)
+TOUS les comptes existants et à créer sont fournisseurs de l'Ultra Premium (Higgsfield, ElevenLabs, Figma, Suno, fal, Jotform, GoDaddy, Vercel, Hetzner, Twilio, Make, PayPal, Cursor, tous les moteurs…). Source unique : la vue usine.fournisseurs_ultra, alimentée automatiquement par usine.inventaire — un compte ajouté à l'inventaire y apparaît tout seul ; s'il n'a pas de capacité décrite, il sort « À QUALIFIER » et usine.ultra_oublis() > 0 passe au rouge. Les comptes « internes » (compta, transport, boutique Caftan) restent listés mais ne sont jamais revendus.

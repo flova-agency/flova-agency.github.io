@@ -109,8 +109,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 .aud .ring b{width:50px;height:50px;border-radius:50%;background:#fff;display:grid;place-items:center;font:700 19px Inter;color:#111b21}
 .crit{margin:6px 0 2px;display:grid;gap:7px}
 .crit div{font-size:12.5px;line-height:1.3}
-.crit .bar{height:6px;border-radius:9px;background:#e9edef;overflow:hidden;margin:3px 0 1px}
-.crit .bar i{display:block;height:100%;border-radius:9px;width:0;transition:width .9s ease}
+.crit .gauge{height:6px;border-radius:9px;background:#e9edef;overflow:hidden;margin:3px 0 1px}
+.crit .gauge i{display:block;height:100%;border-radius:9px;width:0;transition:width .9s ease}
 .crit small{color:#667781;display:block}
 .aud .lb{font-size:13px;color:#667781}
 .aud b.t{font-size:16px}
@@ -141,6 +141,17 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 .styk{display:flex;gap:6px;margin-top:8px}
 .styk button{flex:1;font:600 13.5px Inter;border-radius:10px;padding:9px;cursor:pointer;border:1px solid #d1d7db;background:#fff;color:#111b21}
 .styk .k{background:#25d366;border-color:#25d366;color:#fff}.styk button:disabled{opacity:.5}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:7px 0}
+.kpi div{background:#f5f6f6;border-radius:9px;padding:7px 8px;text-align:center}
+.kpi b{display:block;font:700 20px Inter;color:#111b21}.kpi small{font-size:11.5px;color:#667781}
+.spark{display:flex;align-items:flex-end;gap:3px;height:54px;margin:6px 0 2px}
+.spark i{flex:1;background:#25d366;border-radius:3px 3px 0 0;min-height:2px;opacity:.85;transform-origin:bottom;animation:grow .7s ease-out both}
+@keyframes grow{from{transform:scaleY(0)}}
+.spk{display:flex;justify-content:space-between;font-size:11px;color:#667781;margin-bottom:6px}
+.rows{display:grid;gap:5px;margin-top:6px;font-size:12.5px}
+.rows div{display:grid;grid-template-columns:96px 1fr 34px;align-items:center;gap:6px}
+.rows .gauge{height:7px;border-radius:9px;background:#e9edef;overflow:hidden}.rows .gauge i{display:block;height:100%;background:#53bdeb;border-radius:9px}
+.rows span:last-child{text-align:right;color:#667781}
 .fixall{display:block;width:100%;margin-top:9px;font:600 14px Inter;background:#25d366;color:#fff;border:0;border-radius:10px;padding:10px;cursor:pointer}
 </style>
 </head>
@@ -154,6 +165,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="chips" id="chips">
       <button type="button">📊 Analyse mon site et note-le sur 100</button>
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
+      <button type="button" data-stats>📈 Mes visites</button>
       <button type="button" data-vers>🕓 Mes versions</button>
       <button type="button" data-share>📲 Partager mon site</button>
       <button type="button">🌐 Trouve mon nom de domaine</button>
@@ -360,12 +372,12 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         }));
       } else if (j.type === 'audit') {
         const col = v => v >= 75 ? '#25d366' : v >= 55 ? '#f5a623' : '#e5484d';
-        const b = bubble(`<div class="aud"><div class="ring" style="--c:${col(j.note)}"><b>0</b></div><div><b class="t">Ton site : ${j.note}/100</b><div class="lb">${j.note >= 80 ? 'Très bon niveau' : j.note >= 65 ? 'Bon, et facile à pousser plus haut' : 'Il y a de la marge, on s’y met ?'}</div></div></div>${esc(j.resume || '')}<div class="crit">${(j.criteres || []).map(c => `<div><b>${esc(c.nom)}</b> · ${c.note}/100<div class="bar"><i style="background:${col(c.note)}" data-w="${c.note}"></i></div><small>${esc(c.pourquoi)}</small></div>`).join('')}</div>${j.tout ? '<button type="button" class="fixall">✨ Tout corriger d’un coup</button>' : ''}`, 'in');
+        const b = bubble(`<div class="aud"><div class="ring" style="--c:${col(j.note)}"><b>0</b></div><div><b class="t">Ton site : ${j.note}/100</b><div class="lb">${j.note >= 80 ? 'Très bon niveau' : j.note >= 65 ? 'Bon, et facile à pousser plus haut' : 'Il y a de la marge, on s’y met ?'}</div></div></div>${esc(j.resume || '')}<div class="crit">${(j.criteres || []).map(c => `<div><b>${esc(c.nom)}</b> · ${c.note}/100<div class="gauge"><i style="background:${col(c.note)}" data-w="${c.note}"></i></div><small>${esc(c.pourquoi)}</small></div>`).join('')}</div>${j.tout ? '<button type="button" class="fixall">✨ Tout corriger d’un coup</button>' : ''}`, 'in');
         const ring = b.querySelector('.ring'), num = ring.querySelector('b');
         let k = 0; const t0 = performance.now();
         const anim = t => { const p = Math.min(1, (t - t0) / 1100); k = Math.round(j.note * (1 - Math.pow(1 - p, 3))); ring.style.setProperty('--v', k); num.textContent = k; if (p < 1) requestAnimationFrame(anim); };
         requestAnimationFrame(anim);
-        setTimeout(() => b.querySelectorAll('.bar i').forEach(i => i.style.width = i.dataset.w + '%'), 60);
+        setTimeout(() => b.querySelectorAll('.gauge i').forEach(i => i.style.width = i.dataset.w + '%'), 60);
         const fx = b.querySelector('.fixall'); if (fx) fx.addEventListener('click', () => { fx.disabled = true; fx.textContent = 'Je corrige tout…'; ask(j.tout); });
         if (j.choix && j.choix.length) bubble('Ou touche une correction à la fois :', 'in');
       } else if (j.type === 'styles' && Array.isArray(j.styles)) {
@@ -456,6 +468,30 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       k.querySelector('[data-undo]').addEventListener('click', undo); sheet(false);
     }));
   }
+  /* visites : compteurs anonymes du site */
+  const NOMS = { hero: 'Accueil', clients: 'Clients', manifeste: 'Manifeste', expertises: 'Expertises', formats: 'Formats', travaux: 'Travaux', secteurs: 'Secteurs', methode: 'Méthode', fondateur: 'Fondateur', offres: 'Offres', contact: 'Contact' };
+  const SRC = { direct: 'Accès direct', google: 'Google', instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', whatsapp: 'WhatsApp', moteur: 'Autres moteurs', autre: 'Autres sites' };
+  const LNG = { fr: 'Français', en: 'Anglais', nl: 'Néerlandais', de: 'Allemand', es: 'Espagnol', it: 'Italien', tr: 'Turc', ar: 'Arabe', pt: 'Portugais' };
+  async function visites() {
+    sheet(true);
+    const d0 = new Date(Date.now() - 29 * 864e5).toISOString().slice(0, 10);
+    const { data, error } = await sb.from('flova_visits').select('day,k,n').gte('day', d0).limit(5000);
+    if (error) return bubble('Je n’arrive pas à lire tes visites pour le moment. Réessaie dans un instant.', 'in');
+    const by = {}, tot = {}; (data || []).forEach(r => { (by[r.day] = by[r.day] || {})[r.k] = r.n; tot[r.k] = (tot[r.k] || 0) + r.n; });
+    const day = i => new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+    const v = i => (by[day(i)] || {}).v || 0;
+    const auj = v(0), sem = [0, 1, 2, 3, 4, 5, 6].reduce((a, i) => a + v(i), 0), mois = tot.v || 0;
+    if (!mois) return bubble('📈 Pas encore de visite comptée. Dès qu’un visiteur ouvre ton site, ses visites apparaissent ici (sans cookie ni donnée personnelle). Partage ton site pour lancer le compteur !', 'in');
+    const j14 = [...Array(14)].map((_, k) => v(13 - k)), mx = Math.max(1, ...j14);
+    const tel = Math.round(100 * (tot.tel || 0) / Math.max(1, (tot.tel || 0) + (tot.ord || 0)));
+    const rows = (pre, map, lim) => { const L = Object.keys(tot).filter(k => k.startsWith(pre)).map(k => [k.slice(pre.length), tot[k]]).sort((a, b) => b[1] - a[1]).slice(0, lim); const m = Math.max(1, ...L.map(x => x[1])); return L.map(([k, n]) => `<div><span>${esc(map[k] || k.replace(/^x_/, 'Section '))}</span><span class="gauge"><i style="width:${Math.round(100 * n / m)}%"></i></span><span>${n}</span></div>`).join(''); };
+    const secs = rows('s_', NOMS, 5), srcs = rows('src_', SRC, 4), lgs = rows('l_', LNG, 3);
+    bubble(`📈 <b>Tes visites</b> (30 derniers jours, sans cookie)<div class="kpi"><div><b>${auj}</b><small>aujourd’hui</small></div><div><b>${sem}</b><small>7 jours</small></div><div><b>${tel}%</b><small>sur téléphone</small></div></div><div class="spark">${j14.map((n, k) => `<i title="${n}" style="height:${Math.max(3, Math.round(100 * n / mx))}%;animation-delay:${k * 30}ms"></i>`).join('')}</div><div class="spk"><span>il y a 14 jours</span><span>aujourd’hui</span></div>${secs ? '<b>Sections les plus vues</b><div class="rows">' + secs + '</div>' : ''}${srcs ? '<br><b>D’où viennent tes visiteurs</b><div class="rows">' + srcs + '</div>' : ''}${lgs ? '<br><b>Langues</b><div class="rows">' + lgs + '</div>' : ''}`, 'in');
+    const q2 = document.createElement('div'); q2.className = 'qr';
+    const top = Object.keys(tot).filter(k => k.startsWith('s_') && k !== 's_hero').sort((a, b) => tot[b] - tot[a])[0];
+    ['Donne-moi 3 idées pour avoir plus de visiteurs', ...(top && NOMS[top.slice(2)] ? ['Mets la section ' + NOMS[top.slice(2)] + ' juste après l’accueil'] : [])].forEach(t => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; x.onclick = () => { q2.remove(); ask(t); }; q2.appendChild(x); });
+    msgs.appendChild(q2); msgs.scrollTop = msgs.scrollHeight;
+  }
   /* partage : aperçu Google, QR code, WhatsApp */
   function loadQR() { return window.qrcode ? Promise.resolve() : new Promise((ok, ko) => { const x = document.createElement('script'); x.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'; x.onload = ok; x.onerror = ko; document.head.appendChild(x); }); }
   async function partager() {
@@ -514,7 +550,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopMic(); });
   window.addEventListener('pagehide', stopMic);
   $('comp').addEventListener('submit', e => { e.preventDefault(); if (rec) { stopMic(); return; } const v = txt.value.trim(); if (v) ask(v); else if (!login) listen(); });
-  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } if (b.dataset.share != null) { partager(); return; } ask(b.textContent); });
+  $('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.photo != null) { $('pic').click(); return; } if (b.dataset.vers != null) { versions(); return; } if (b.dataset.share != null) { partager(); return; } if (b.dataset.stats != null) { visites(); return; } ask(b.textContent); });
   $('att').addEventListener('click', () => $('pic').click());
 
   /* photo : réduite, envoyée dans le stockage du site, puis proposée à l'assistant */

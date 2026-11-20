@@ -1187,6 +1187,29 @@ if (sb && EDITABLE_HOST) {
   /* jamais d'appel Supabase directement dans ce rappel : on le reporte, sinon la connexion peut se bloquer */
   sb.auth.onAuthStateChange((ev, s) => { if (ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION' || ev === 'SIGNED_OUT') setTimeout(() => onSession(s, ev), 0); });
 }
+/* ---------- visites : compteurs anonymes (aucun cookie, aucune donnée personnelle) ---------- */
+(() => {
+  const test = /[?&]visite=test\b/.test(location.search);
+  if (/[?&]apercu\b/.test(location.search) || /[?&]studio\b/.test(location.search) || location.hash === '#modifier') return;
+  if (!test && (/bot|crawl|spider|slurp|preview|headless|lighthouse/i.test(navigator.userAgent) || navigator.webdriver)) return;
+  const hit = (keys, ka) => { try { fetch(SB_URL + '/rest/v1/rpc/flova_hit', { method: 'POST', keepalive: !!ka, headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_keys: keys.slice(0, 8) }) }).catch(() => {}); } catch (x) {} };
+  let seen = {}; try { seen = JSON.parse(sessionStorage.getItem('flova-vu') || '{}'); } catch (x) {}
+  const mark = () => { try { sessionStorage.setItem('flova-vu', JSON.stringify(seen)); } catch (x) {} };
+  if (!seen.v) {
+    const r = (document.referrer || '').toLowerCase(), h = r ? (r.match(/^https?:\/\/([^/]+)/) || [])[1] || '' : '';
+    const src = !h || h.endsWith(location.host) ? 'direct' : /google\./.test(h) ? 'google' : /instagram/.test(h) ? 'instagram' : /tiktok/.test(h) ? 'tiktok' : /facebook|fb\.com/.test(h) ? 'facebook' : /whatsapp|wa\.me/.test(h) ? 'whatsapp' : /bing|duckduckgo|qwant|ecosia|yahoo/.test(h) ? 'moteur' : 'autre';
+    const lg = (typeof curLang === 'function' && curLang()) || (navigator.language || 'fr').slice(0, 2).toLowerCase();
+    hit(['v', matchMedia('(max-width:820px)').matches ? 'tel' : 'ord', 'src_' + src, 'l_' + String(lg).replace(/[^a-z]/g, '').slice(0, 3)]);
+    seen.v = 1; mark();
+  }
+  let todo = [];
+  const flush = ka => { while (todo.length) hit(todo.splice(0, 8), ka); };
+  const io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; const n = 's_' + String(e.target.dataset.s || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 36); io.unobserve(e.target); if (n === 's_' || seen[n]) return; seen[n] = 1; mark(); todo.push(n); if (todo.length >= 8) flush(); }), { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+  const watch = () => document.querySelectorAll('[data-s]').forEach(el => io.observe(el));
+  setTimeout(watch, 1200);
+  addEventListener('pagehide', () => flush(true)); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(true); });
+  setInterval(() => flush(), 15000);
+})();
 }
 </script>
 </body>

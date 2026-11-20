@@ -46,6 +46,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 .typing{align-self:flex-start;background:#fff;border-radius:9px;padding:10px 14px;display:flex;gap:4px}
 .typing i{width:7px;height:7px;border-radius:50%;background:#8696a0;animation:bl 1.2s infinite}
 .typing span{font-size:13px;color:#667781;margin-left:6px;align-self:center}
+.typing.long{flex-wrap:wrap;min-width:230px}
+.typing .pg{flex-basis:100%;height:4px;border-radius:9px;background:#e9edef;margin-top:8px;overflow:hidden}.typing .pg u{display:block;height:100%;width:0;background:#25d366;border-radius:9px;transition:width 20s cubic-bezier(.2,.7,.3,1)}
 .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 @keyframes bl{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
 .chips{display:flex;gap:7px;overflow-x:auto;padding:8px 10px 2px;scrollbar-width:none}
@@ -230,12 +232,16 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   $('ch').addEventListener('click', () => sheet(!chat.classList.contains('open')));
   let stT = null;
   const STEPS = ['je lis ton site…', 'je prépare la modification…', 'j’écris les textes…', 'je vérifie chaque détail…', 'presque fini…'];
-  function typing(on) {
+  const STEPS_TR = ['je prépare la traduction…', 'je traduis les titres et les textes…', 'je traduis les listes et les sections…', 'je traduis la description Google…', 'je vérifie le ton et les détails…', 'je mets la nouvelle langue en ligne…'];
+  const STEPS_AN = ['je parcours ton site…', 'je regarde ce qu’un visiteur voit en 5 secondes…', 'je vérifie les appels à l’action…', 'je regarde la confiance et Google…', 'je calcule ta note…'];
+  function typing(on, kind) {
     let t = msgs.querySelector('.typing');
-    if (on && !t) { t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i><span></span>'; msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight; }
+    const long = kind === 'tr' ? 20 : kind === 'an' ? 12 : 0;
+    if (on && !t) { t = document.createElement('div'); t.className = 'typing' + (long ? ' long' : ''); t.innerHTML = '<i></i><i></i><i></i><span></span>' + (long ? '<b class="pg"><u></u></b>' : ''); msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight; if (long) requestAnimationFrame(() => requestAnimationFrame(() => { const u = t.querySelector('.pg u'); if (u) { u.style.transitionDuration = long + 's'; u.style.width = '92%'; } })); }
     if (!on && t) t.remove();
     clearInterval(stT);
-    if (on) { let k = 0; const show = () => { const m = STEPS[Math.min(k++, STEPS.length - 1)]; $('st').textContent = m; const sp = msgs.querySelector('.typing span'); if (sp) sp.textContent = m; }; show(); stT = setInterval(show, 3200); }
+    const L = kind === 'tr' ? STEPS_TR : kind === 'an' ? STEPS_AN : STEPS;
+    if (on) { let k = 0; const show = () => { const m = L[Math.min(k++, L.length - 1)]; $('st').textContent = m; const sp = msgs.querySelector('.typing span'); if (sp) sp.textContent = m; }; show(); stT = setInterval(show, kind === 'tr' ? 3400 : 3200); }
     else $('st').textContent = 'en ligne';
   }
   /* dialogue avec le site affiché dans le cadre */
@@ -334,7 +340,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     busy = true; bubble(esc(instruction), 'out');
     let send = instruction;
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; }
-    txt.value = ''; txt.style.height = 'auto'; setBtn(); typing(true);
+    txt.value = ''; txt.style.height = 'auto'; setBtn(); typing(true, /(anglais|anglaise|néerlandais|neerlandais|allemand|espagnol|italien|turc|arabe|portugais|tradu)/i.test(instruction) ? 'tr' : /(analyse|note|audit)/i.test(instruction) ? 'an' : '');
     try {
       const { data: j, error } = await sb.functions.invoke('flova-assistant', { body: { instruction: send, site: cur } });
       let err = null; if (error) { try { err = (await error.context.json()).error; } catch (x) {} err = err || 'L’assistant ne répond pas pour le moment. Réessaie dans un instant.'; }

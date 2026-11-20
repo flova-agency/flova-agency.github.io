@@ -65,7 +65,7 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 - [x] **35. Barre de choix de style flottante** — quand la conversation est repliée pendant l'essai des 3 styles, une petite barre permet de passer d'un style à l'autre et de garder, sans rouvrir la conversation. Fait si : testé sur iPhone SE. Preuve : barre en haut de l'écran (3 pastilles, Garder, ✕), bascule entre styles vérifiée sur iPhone 15 et iPhone SE, studio 49/49 le 20/11 vers 5 h 35.
 - [x] **36. Banc de régression de l'assistant élargi** — ajout des cas « analyse », « 3 styles », « traduction rapide », « idées après changement ». Fait si : tests/assistant_regression.py vert deux fois de suite. 1er passage 15/15 le 20/11 vers 5 h 45 (analyse 18 s, 3 styles 7 s, espagnol 23,5 s) ; 2e passage 15/15 le 20/11 à 7 h (analyse 14,8 s, styles 9,6 s, espagnol 18,4 s), studio 49/49 au même moment.
 - [x] **32. Régression complète et gel à 10 h** — assistant, studio, démo, sécurité, tous verts sur la version en ligne. Preuve (20/11 à 9 h, version en ligne 67f56a7) : assistant 15/15, studio 49/49, démo 37/37, styles de la démo 2/2, formulaire 4/4, visites OK, sécurité anonyme 20/20 (étendue aux tables messages et visites). Code gelé : plus aucune modification avant la présentation.
-- [ ] **33. PDF des nouveautés pour Karim avant 10 h 45.**
+- [x] **33. PDF des nouveautés pour Karim avant 10 h 45.** Envoyé à 10 h 17 (5 pages, captures iPhone), copie dans le Drive (cerveau-apports, « Flova - nouveautés du 20-11 (11 h).pdf »).
 
 ## Liaison usine (J+2 à J+4)
 

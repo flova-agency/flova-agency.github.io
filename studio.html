@@ -114,6 +114,9 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     <div class="chips" id="chips">
       <button type="button" data-photo>📷 Mettre ma propre photo</button>
       <button type="button">💡 Donne-moi 3 idées pour mon site</button>
+      <button type="button">✨ Rends le site plus luxe</button>
+      <button type="button">❓ Ajoute une FAQ</button>
+      <button type="button">📣 Ajoute un bandeau promo</button>
       <button type="button">🌍 Ajoute la version anglaise du site</button>
       <button type="button">🌍 Ajoute le néerlandais</button>
       <button type="button">Masque la section Offres</button>
@@ -300,6 +303,8 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
           if (e2 || r?.error) { btn.disabled = false; btn.textContent = 'Envoyer à Uxlab'; bubble(esc(m2 || r?.error || 'Envoi impossible pour le moment.'), 'in'); }
           else { btn.remove(); bubble('Envoyée à Uxlab ✓ Tu recevras un e-mail à chaque étape, jusqu’à la mise en ligne.', 'in'); }
         });
+      } else if (j.type === 'offre') {
+        bubble('⭐ ' + esc(j.resume), 'in');
       } else if (j.type === 'conseil') {
         bubble('💡 ' + esc(j.resume || 'Voici mes idées.') + '\n\nTouche une idée pour l’appliquer :', 'in');
       } else {

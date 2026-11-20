@@ -17,15 +17,15 @@
    COLOUR noir profond #06070b, blanc, bleu électrique Flova #2f5bff ; une bande blanche pour respirer
    TYPE Archivo très étendu 900 pour les titres, Inter pour le texte
    LAYOUT premier écran : titre géant sur 7 colonnes, mur vidéo sur 5 ; téléphone : titre, mur en bande horizontale, boutons */
-:root{color-scheme:dark;--bg:#06070b;--ink:#f4f5f8;--mute:#9aa0b4;--line:rgba(255,255,255,.12);--blue:#2f5bff;--card:#0e1017;--soft:#c6cad8;--blue2:color-mix(in srgb,var(--blue) 62%,#fff);--deep:color-mix(in srgb,var(--blue) 30%,var(--bg))}
+:root{color-scheme:dark;--bg:#06070b;--ink:#f4f5f8;--mute:#9aa0b4;--line:rgba(255,255,255,.12);--blue:#2f5bff;--card:#0e1017;--soft:#c6cad8;--blue2:color-mix(in srgb,var(--blue) 62%,#fff);--deep:color-mix(in srgb,var(--blue) 30%,var(--bg));--fh:Archivo,Inter,sans-serif}
 *{box-sizing:border-box;min-width:0}
 html{scroll-behavior:smooth;scroll-padding-top:76px}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased}
 img{max-width:100%;display:block}
 a{color:inherit}
-.d{font-family:Archivo,Inter,sans-serif;font-stretch:125%;font-weight:900;letter-spacing:-.035em;line-height:.95}
-h2{font-family:Archivo,Inter,sans-serif;font-stretch:125%;font-weight:800;letter-spacing:-.03em;font-size:clamp(30px,5vw,68px);line-height:1;margin:0 0 20px;text-wrap:balance;max-width:16ch}
-h3{font-family:Archivo,Inter,sans-serif;font-stretch:100%;font-weight:600;font-size:20px;line-height:1.25;margin:0 0 8px;letter-spacing:-.01em}
+.d{font-family:var(--fh);font-stretch:125%;font-weight:900;letter-spacing:-.035em;line-height:.95}
+h2{font-family:var(--fh);font-stretch:125%;font-weight:800;letter-spacing:-.03em;font-size:clamp(30px,5vw,68px);line-height:1;margin:0 0 20px;text-wrap:balance;max-width:16ch}
+h3{font-family:var(--fh);font-stretch:100%;font-weight:600;font-size:20px;line-height:1.25;margin:0 0 8px;letter-spacing:-.01em}
 p{margin:0}
 .lead{font-size:clamp(17px,1.4vw,20px);color:var(--mute);max-width:56ch;line-height:1.55}
 .m{color:var(--mute)}
@@ -41,10 +41,28 @@ p{margin:0}
 .btn svg{width:16px;height:16px}
 .btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
 
+/* sections ajoutées */
+.annbar{background:var(--blue);color:#fff;text-align:center;font:600 14.5px Inter,sans-serif;padding:10px 16px}.annbar[hidden]{display:none}.annbar a{color:#fff;font-weight:700}
+.xlead{max-width:60ch;margin:-6px 0 34px}
+.xfaq details{border-top:1px solid var(--line);padding:20px 0}.xfaq details:last-child{border-bottom:1px solid var(--line)}
+.xfaq summary{cursor:pointer;font:700 clamp(18px,2vw,22px)/1.3 Inter,sans-serif;list-style:none;display:flex;justify-content:space-between;gap:16px}.xfaq summary::-webkit-details-marker{display:none}
+.xfaq summary:after{content:"+";color:var(--blue);font-size:26px;line-height:1}.xfaq details[open] summary:after{content:"–"}.xfaq p{color:var(--soft);margin:14px 0 0;max-width:70ch}
+.xgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:18px}
+.xcard{margin:0;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px;display:grid;gap:14px;align-content:start}
+.xcard blockquote{margin:0;font-size:17px;line-height:1.55}.xcard figcaption{color:var(--mute);font-size:14.5px}
+.xstars{color:#ffc53d;letter-spacing:2px;font-size:18px}.xstars span{color:var(--line)}
+.xteam{justify-items:center;text-align:center}.xteam img{width:96px;height:96px;border-radius:50%;object-fit:cover}.xteam .ini{width:96px;height:96px;font-size:28px}.xteam span{color:var(--mute);font-size:14.5px}
+.xgal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:14px}.xgal figure{margin:0;position:relative;border-radius:18px;overflow:hidden;aspect-ratio:4/5}.xgal img{width:100%;height:100%;object-fit:cover}.xgal figcaption{position:absolute;left:12px;bottom:10px;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.6);color:#fff}
+.xvid{border-radius:22px;overflow:hidden;background:#000;margin:0 auto}.xvid.h{aspect-ratio:16/9;max-width:960px}.xvid.v{aspect-ratio:9/16;max-width:340px}.xvid iframe{width:100%;height:100%;border:0}
+.xhor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:24px;align-items:start}.xhor table{border-collapse:collapse;width:100%;font-size:16px}.xhor th,.xhor td{text-align:left;padding:10px 0;border-bottom:1px solid var(--line)}.xhor th{font-weight:600;padding-right:20px}.xaddr{color:var(--soft);margin:20px 0}
+.xmap{width:100%;aspect-ratio:4/3;border:0;border-radius:22px;filter:grayscale(.2)}
+.xcta{display:flex;justify-content:space-between;align-items:center;gap:30px;flex-wrap:wrap;background:linear-gradient(135deg,var(--deep),var(--card));border:1px solid var(--line);border-radius:28px;padding:clamp(28px,4vw,56px)}.xcta h2{margin:0 0 10px}
+@media(max-width:760px){.xhor{grid-template-columns:1fr}}
+
 /* nav */
 nav{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(18px) saturate(1.4);border-bottom:1px solid var(--line)}
 nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw,18px);max-width:none}
-.logo{white-space:nowrap;font:900 22px Archivo;font-stretch:125%;letter-spacing:.06em;text-decoration:none;display:flex;align-items:center;gap:10px}
+.logo{white-space:nowrap;font:900 22px var(--fh);font-stretch:125%;letter-spacing:.06em;text-decoration:none;display:flex;align-items:center;gap:10px}
 .logo i{width:12px;height:12px;border-radius:3px;background:var(--blue);transform:rotate(45deg)}
 .links{display:flex;gap:28px;margin-left:auto;font-size:15px}
 .links a{text-decoration:none;color:var(--soft)}
@@ -87,15 +105,15 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .clients{padding:34px 0;border-bottom:1px solid var(--line);overflow:hidden}
 .clients p{text-align:center;color:var(--mute);font-size:14px;margin-bottom:22px}
 .marq{display:flex;gap:70px;width:max-content;animation:slide 30s linear infinite}
-.marq span{display:flex;align-items:center;gap:14px;font:800 22px Archivo;font-stretch:110%;white-space:nowrap;color:#d9dce6}
+.marq span{display:flex;align-items:center;gap:14px;font:800 22px var(--fh);font-stretch:110%;white-space:nowrap;color:#d9dce6}
 .marq img{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff}
-.ini{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;font:800 15px Archivo;font-style:normal;flex:none;letter-spacing:.02em}
+.ini{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;font:800 15px var(--fh);font-style:normal;flex:none;letter-spacing:.02em}
 .who .ini{width:56px;height:56px;font-size:18px}
 @keyframes slide{to{transform:translateX(-50%)}}
 @media(prefers-reduced-motion:reduce){.marq{animation:none}}
 
 /* manifeste */
-.manif{font-family:Archivo,Inter;font-stretch:115%;font-weight:600;font-size:clamp(28px,3.8vw,58px);line-height:1.12;letter-spacing:-.025em;max-width:24ch;text-wrap:balance}
+.manif{font-family:var(--fh);font-stretch:115%;font-weight:600;font-size:clamp(28px,3.8vw,58px);line-height:1.12;letter-spacing:-.025em;max-width:24ch;text-wrap:balance}
 .manif em{font-style:normal;color:var(--mute)}
 .figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:clamp(50px,6vw,90px);border-top:1px solid var(--line)}
 .figs div{padding:28px 24px 0 0}
@@ -111,7 +129,7 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .caps{border-top:1px solid var(--line)}
 .cap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 40px;gap:24px;align-items:center;padding:30px 0;border-bottom:1px solid var(--line);transition:padding .3s}
 .cap:hover{padding-left:12px}
-.cap h3{font-family:Archivo;font-stretch:115%;font-weight:800;font-size:clamp(24px,2.4vw,34px);margin:0}
+.cap h3{font-family:var(--fh);font-stretch:115%;font-weight:800;font-size:clamp(24px,2.4vw,34px);margin:0}
 .cap svg{width:28px;height:28px;color:var(--blue);justify-self:end}
 @media(max-width:620px){.cap{grid-template-columns:minmax(0,1fr) 28px}.cap p{grid-column:1/-1;order:3}}
 
@@ -137,7 +155,7 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .case .tx{padding:clamp(28px,4vw,56px)}
 .who{display:flex;align-items:center;gap:14px;margin-bottom:26px}
 .who img{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
-.who b{font:800 22px Archivo;font-stretch:110%;display:block}
+.who b{font:800 22px var(--fh);font-stretch:110%;display:block}
 .who span{font-size:14px;color:var(--mute)}
 .k{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:24px 28px}
 .k>div{border-top:1px solid var(--line);padding-top:14px}
@@ -164,7 +182,7 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 .stat{border-radius:28px;padding:clamp(30px,4vw,56px);background:radial-gradient(120% 120% at 0% 0%,var(--blue) 0%,var(--deep) 55%,var(--card) 100%);display:grid;gap:30px}
 .stat .d{font-size:clamp(90px,13vw,190px)}
 .stat .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;border-top:1px solid rgba(255,255,255,.25);padding-top:22px}
-.stat .row b{display:block;font:800 clamp(28px,3vw,40px)/1 Archivo;font-stretch:115%}
+.stat .row b{display:block;font:800 clamp(28px,3vw,40px)/1 var(--fh);font-stretch:115%}
 .stat span{color:#c9d2ff;font-size:14px}
 .soc{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
 @media(max-width:900px){.founder{grid-template-columns:1fr}}
@@ -172,7 +190,7 @@ nav .wrap{display:flex;align-items:center;gap:30px;height:72px;padding:0 max(5vw
 /* secteurs */
 .sect{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:24px;overflow:hidden;margin-top:56px}
 .sect>div{background:var(--bg);padding:34px 28px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between;gap:30px}
-.sect h3{font-family:Archivo;font-stretch:115%;font-weight:800;font-size:24px}
+.sect h3{font-family:var(--fh);font-stretch:115%;font-weight:800;font-size:24px}
 @media(max-width:900px){.sect{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.sect{grid-template-columns:1fr}.sect>div{min-height:0}}
 
@@ -286,7 +304,7 @@ body.ed .edbar{display:flex}
 .mmsg:empty{display:none}
 .mbox{background:#fff;color:#06070b;border-radius:22px;padding:28px;width:min(440px,100%);display:grid;gap:14px;max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
 @media(max-width:700px){.mbox{padding:20px;gap:12px}}
-.mbox h3{font:800 24px Archivo;font-stretch:115%;margin:0}
+.mbox h3{font:800 24px var(--fh);font-stretch:115%;margin:0}
 .mbox p{color:#4e5468;font-size:15px;margin:0}
 .mbox .btn{background:#06070b;color:#fff;width:100%}
 .hlist{display:grid;gap:8px;max-height:55vh;overflow:auto}
@@ -296,7 +314,7 @@ body.ed .edbar{display:flex}
 .hrow.cur{background:#f3f5fb}
 .ubig{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ubig div{background:#f3f5fb;border-radius:14px;padding:14px}
-.ubig b{display:block;font:800 26px Archivo;font-stretch:110%;color:#06070b}
+.ubig b{display:block;font:800 26px var(--fh);font-stretch:110%;color:#06070b}
 .ubig span{font-size:13px;color:#4e5468}
 .ubar{height:10px;border-radius:99px;background:#e6e9f2;overflow:hidden;margin:4px 0 2px}
 .ubar i{display:block;height:100%;background:#2f5bff;border-radius:99px}
@@ -308,6 +326,7 @@ body.ed .edbar{display:flex}
 </head>
 <body>
 
+<div id="annbar" class="annbar" hidden></div>
 <nav><div class="wrap">
   <a class="logo" href="#top"><i></i><span data-k="brand">FLOVA</span></a>
   <div class="links"><a href="#expertises"><span data-k="nav_l1">Expertises</span></a><a href="#travaux"><span data-k="nav_l2">Travaux</span></a><a href="#methode"><span data-k="nav_l3">Méthode</span></a><a href="#fondateur"><span data-k="nav_l4">Fondateur</span></a><a href="#offres"><span data-k="nav_l5">Offres</span></a></div>
@@ -552,7 +571,7 @@ const ICO = {
 
 const DEF = {
   links: { email: 'Pro.fukay1070@hotmail.com', tiktok: 'https://www.tiktok.com/@fukay1070', instagram: 'https://www.instagram.com/fukay1070/' },
-  t: {}, hide: {}, order: [], theme: {}, langs: {},
+  t: {}, hide: {}, order: [], theme: {}, langs: {}, blocks: [],
   L: {
     tiles: [{img:'img/f1.jpg',t:'Micro-trottoir'},{img:'img/f3.jpg',t:'Visite de boutique'},{img:'img/f2.jpg',t:'Portrait'},{img:'img/tissus.jpg',t:'En boutique'},{img:'img/f4.jpg',t:'Créateur UGC'},{img:'img/rue.jpg',t:'Dans la rue'},{img:'img/hero.jpg',t:'Rue commerçante'}],
     logos: [{img:'img/l1.jpg',t:'Caftan Factory'},{img:'img/l4.jpg',t:'Original Farmer'},{img:'img/l2.jpg',t:'Mr. Pacha Kebab'},{img:'img/l3.jpg',t:'Crousty Factory'}],
@@ -599,6 +618,13 @@ const logoH = (img, name) => img ? `<img src="${src(img)}" alt="">` : `<i class=
 
 /* thème : couleurs choisies par le propriétaire ou l'assistant */
 const THEME_KEYS = { bg: '--bg', card: '--card', ink: '--ink', mute: '--mute', accent: '--blue', soft: '--soft' };
+const FONTS = { archivo: ['Archivo,Inter,sans-serif', ''], serif: ["'Playfair Display',Georgia,serif", 'Playfair+Display:wght@700;800;900'], rond: ["Poppins,Inter,sans-serif", 'Poppins:wght@600;700;800'], grotesk: ["'Space Grotesk',Inter,sans-serif", 'Space+Grotesk:wght@600;700'], impact: ["'Bebas Neue',Impact,sans-serif", 'Bebas+Neue'], elegant: ["'DM Serif Display',Georgia,serif", 'DM+Serif+Display'] };
+function applyFont(f) {
+  const r = document.documentElement.style, def = FONTS[f];
+  if (!def || f === 'archivo') { r.removeProperty('--fh'); return; }
+  r.setProperty('--fh', def[0]);
+  if (def[1] && !document.getElementById('font-' + f)) { const l = document.createElement('link'); l.id = 'font-' + f; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + def[1] + '&display=swap'; document.head.appendChild(l); }
+}
 function lum(h) { const n = parseInt(h.slice(1), 16), c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; }
 function applyTheme() {
   const th = C.theme || {}, r = document.documentElement.style;
@@ -608,6 +634,7 @@ function applyTheme() {
   r.setProperty('color-scheme', dark ? 'dark' : 'light');
   if (th.bg || th.ink) r.setProperty('--line', dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'); else r.removeProperty('--line');
   if (!th.soft && (th.bg || th.ink)) r.setProperty('--soft', `color-mix(in srgb, ${ink} 82%, ${bg})`);
+  applyFont(th.font);
 }
 /* langues : le français est la langue principale, chaque traduction s'ajoute à côté */
 const LANG_NAMES = { fr: 'FR', en: 'EN', nl: 'NL', de: 'DE', es: 'ES', it: 'IT', tr: 'TR', ar: 'AR', pt: 'PT' };
@@ -626,6 +653,50 @@ function drawLangs() {
 function setLang(l) { LANG = l; try { localStorage.setItem('flova-lang', l); } catch (x) {} render(); }
 document.addEventListener('click', e => { const b = e.target.closest('#lgsw button'); if (b) setLang(b.dataset.lang); });
 document.addEventListener('change', e => { if (e.target.closest('#lgsw select')) setLang(e.target.value); });
+/* ---------- sections ajoutées par l'assistant ---------- */
+const BTYPES = ['faq', 'avis', 'galerie', 'video', 'horaires', 'texte', 'cta', 'equipe', 'bandeau'];
+const str = (v, n = 600) => typeof v === 'string' ? v.slice(0, n) : '';
+const arr = (v, n) => Array.isArray(v) ? v.slice(0, n).filter(x => x && typeof x === 'object') : [];
+function sanitizeBlocks(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(b => b && BTYPES.includes(b.type)).slice(0, 12).map((b, i) => ({
+    id: /^[a-z0-9]{1,12}$/.test(b.id || '') ? b.id : 'b' + i + Math.random().toString(36).slice(2, 6),
+    type: b.type, eyebrow: str(b.eyebrow, 60), title: str(b.title, 140), text: str(b.text, 1200), button: str(b.button, 40), url: str(b.url, 400), address: str(b.address, 200), phone: str(b.phone, 40),
+    items: arr(b.items, 12).map(x => ({ q: str(x.q, 200), a: str(x.a, 900), name: str(x.name, 80), role: str(x.role, 80), text: str(x.text, 500), stars: Math.max(0, Math.min(5, +x.stars || 0)), img: str(x.img, 400), t: str(x.t, 120), d: str(x.d, 60), h: str(x.h, 80) }))
+  }));
+}
+function embedUrl(u) {
+  let m;
+  if ((m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{6,})/))) return ['https://www.youtube-nocookie.com/embed/' + m[1], u.includes('shorts') ? 'v' : 'h'];
+  if ((m = u.match(/tiktok\.com\/.*\/video\/(\d+)/))) return ['https://www.tiktok.com/embed/v2/' + m[1], 'v'];
+  if ((m = u.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/))) return ['https://www.instagram.com/reel/' + m[1] + '/embed', 'v'];
+  return null;
+}
+const stars = n => n ? '<div class="xstars" aria-label="' + n + ' sur 5">' + '★'.repeat(n) + '<span>' + '★'.repeat(5 - n) + '</span></div>' : '';
+function blockInner(b) {
+  const E = v => esc(typeof fr === "function" ? fr(String(v ?? "")) : v);
+  const head = (b.eyebrow ? `<div class="eyebrow">${E(b.eyebrow)}</div>` : '') + (b.title ? `<h2>${E(b.title)}</h2>` : '') + (b.text && b.type !== 'cta' ? `<p class="lead xlead">${E(b.text)}</p>` : '');
+  if (b.type === 'faq') return head + `<div class="xfaq">${b.items.map(x => `<details><summary>${E(x.q)}</summary><p>${E(x.a)}</p></details>`).join('')}</div>`;
+  if (b.type === 'avis') return head + `<div class="xgrid">${b.items.map(x => `<figure class="xcard">${stars(x.stars)}<blockquote>« ${E(x.text)} »</blockquote><figcaption>${E(x.name)}${x.role ? ' · ' + E(x.role) : ''}</figcaption></figure>`).join('')}</div>`;
+  if (b.type === 'galerie') return head + `<div class="xgal">${b.items.filter(x => x.img).map(x => `<figure><img src="${src(x.img)}" alt="${E(x.t)}" loading="lazy">${x.t ? `<figcaption>${E(x.t)}</figcaption>` : ''}</figure>`).join('')}</div>`;
+  if (b.type === 'video') { const e = embedUrl(b.url || ''); return head + (e ? `<div class="xvid ${e[1]}"><iframe src="${e[0]}" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="${E(b.title || 'Vidéo')}"></iframe></div>` : ''); }
+  if (b.type === 'horaires') return head + `<div class="xhor"><div>${b.items.length ? `<table>${b.items.map(x => `<tr><th>${E(x.d)}</th><td>${E(x.h)}</td></tr>`).join('')}</table>` : ''}${b.address ? `<p class="xaddr">${E(b.address)}</p>` : ''}${b.phone ? `<p><a class="btn" href="tel:${E(b.phone.replace(/[^+\d]/g, ''))}">${E(b.phone)}</a></p>` : ''}</div>${b.address ? `<iframe class="xmap" loading="lazy" title="Plan" src="https://maps.google.com/maps?q=${encodeURIComponent(b.address)}&output=embed"></iframe>` : ''}</div>`;
+  if (b.type === 'equipe') return head + `<div class="xgrid">${b.items.map(x => `<figure class="xcard xteam">${x.img ? `<img src="${src(x.img)}" alt="" loading="lazy">` : `<i class="ini">${E((x.name || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase())}</i>`}<b>${E(x.name)}</b><span>${E(x.role)}</span></figure>`).join('')}</div>`;
+  if (b.type === 'cta') return `<div class="xcta"><div>${b.title ? `<h2>${E(b.title)}</h2>` : ''}${b.text ? `<p class="lead">${E(b.text)}</p>` : ''}</div><a class="btn blue" href="#contact">${E(b.button || 'Nous contacter')}</a></div>`;
+  return head;
+}
+function renderBlocks() {
+  document.querySelectorAll('section.xb').forEach(el => el.remove());
+  const bar = $('annbar'); const ban = (C.blocks || []).find(b => b.type === 'bandeau');
+  if (bar) { bar.hidden = !ban; bar.innerHTML = ban ? `<span>${esc(fr(ban.text || ban.title))}</span>${ban.button ? ` <a href="#contact">${esc(ban.button)}&nbsp;→</a>` : ''}` : ''; }
+  const foot = document.querySelector('footer');
+  for (const b of C.blocks || []) {
+    if (b.type === 'bandeau') continue;
+    const sec = document.createElement('section'); sec.className = 'band xb xb-' + b.type; sec.dataset.s = 'x_' + b.id;
+    sec.innerHTML = `<div class="wrap">${blockInner(b)}</div>`;
+    foot.parentNode.insertBefore(sec, foot);
+  }
+}
 function render() {
   const cl = curLang(), lg = cl !== 'fr' ? C.langs[cl] : null;
   document.documentElement.lang = cl; document.documentElement.dir = cl === 'ar' ? 'rtl' : 'ltr';
@@ -634,7 +705,8 @@ function render() {
   C.t = Object.assign({}, C.t, lg.t || {}); C.L = Object.assign({}, C.L);
   for (const k in lg.L || {}) if (Array.isArray(lg.L[k]) && k in C.L) C.L[k] = lg.L[k];
   C.links = Object.assign({}, C.links, lg.links || {});
-  try { renderBase(); } finally { C.t = sv.t; C.L = sv.L; C.links = sv.links; }
+  sv.blocks = C.blocks; if (Array.isArray(lg.blocks) && lg.blocks.length === (C.blocks || []).length) C.blocks = sanitizeBlocks(lg.blocks.map((b, i) => Object.assign({}, b, { id: C.blocks[i].id, type: C.blocks[i].type })));
+  try { renderBase(); } finally { C.t = sv.t; C.L = sv.L; C.links = sv.links; C.blocks = sv.blocks; }
   drawLangs();
 }
 function renderBase() {
@@ -672,6 +744,7 @@ function renderBase() {
   const em = C.links.email || DEF.links.email;
   document.querySelectorAll('.mailto').forEach(a => { a.href = 'mailto:' + em; if (!a.querySelector('[data-k]')) a.textContent = em; });
   [['a_tt','tiktok'],['a_tt2','tiktok'],['a_ig','instagram'],['a_ig2','instagram']].forEach(([id,k]) => { if (C.links[k]) $(id).href = C.links[k]; });
+  renderBlocks();
   placeSections();
   document.querySelectorAll('[data-s]').forEach(s => {
     s.dataset.hide = C.hide[s.dataset.s] ? '1' : '0';
@@ -682,9 +755,10 @@ function renderBase() {
   setEditable();
 }
 
-const SECS = [...document.querySelectorAll('[data-s]')].map(s => s.dataset.s);
+const SECS0 = [...document.querySelectorAll('[data-s]')].map(s => s.dataset.s);
+const secsAll = () => [...SECS0, ...(C.blocks || []).filter(b => b && b.type !== 'bandeau').map(b => 'x_' + b.id)];
 function placeSections() {
-  const want = [...new Set([...(C.order || []).filter(n => SECS.includes(n)), ...SECS])];
+  const want = [...new Set([...(C.order || []).filter(n => secsAll().includes(n)), ...secsAll()])];
   const foot = document.querySelector('footer');
   want.forEach(n => { const el = document.querySelector(`[data-s="${n}"]`); if (el) foot.parentNode.insertBefore(el, foot); });
 }
@@ -708,7 +782,7 @@ async function save() {
   if (!sb || !user) return;
   if (saving) { pending = true; return; }
   saving = true;
-  const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], theme: C.theme || {}, langs: C.langs || {}, L: C.L, v: 1 };
+  const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], theme: C.theme || {}, langs: C.langs || {}, blocks: C.blocks || [], L: C.L, v: 1 };
   dirty = true;
   const { error } = rowExists
     ? await sb.from('flova_content').update({ data }).eq('id', 'site')
@@ -919,8 +993,8 @@ let askBefore = null;
 function siteNow() {
   const t = {};
   document.querySelectorAll('[data-k]').forEach(el => { const k = el.dataset.k; t[k] = C.t[k] != null ? C.t[k] : (el.dataset.k0 ?? el.textContent); });
-  const order = [...new Set([...(C.order || []).filter(n => SECS.includes(n)), ...SECS])];
-  return { t, L: clone(C.L), hide: clone(C.hide), order, theme: clone(C.theme || {}), langs: clone(C.langs || {}), links: { email: C.links.email || DEF.links.email, tiktok: C.links.tiktok || DEF.links.tiktok, instagram: C.links.instagram || DEF.links.instagram, seoTitle: C.links.seoTitle || TITLE0, seoDesc: C.links.seoDesc || META_DESC } };
+  const order = [...new Set([...(C.order || []).filter(n => secsAll().includes(n)), ...secsAll()])];
+  return { t, L: clone(C.L), hide: clone(C.hide), order, theme: clone(C.theme || {}), langs: clone(C.langs || {}), blocks: clone(C.blocks || []), links: { email: C.links.email || DEF.links.email, tiktok: C.links.tiktok || DEF.links.tiktok, instagram: C.links.instagram || DEF.links.instagram, seoTitle: C.links.seoTitle || TITLE0, seoDesc: C.links.seoDesc || META_DESC } };
 }
 function fixList(k, arr) {
   return arr.map(x => {
@@ -937,9 +1011,11 @@ function applyAsk(site) {
   C.t = t;
   for (const k in DEF.L) if (Array.isArray(site.L?.[k])) C.L[k] = fixList(k, site.L[k]);
   C.hide = {}; for (const k in site.hide || {}) if (site.hide[k] === true) C.hide[k] = true;
-  C.order = Array.isArray(site.order) ? site.order.filter(n => SECS.includes(n)) : [];
-  C.langs = {}; for (const k in site.langs || {}) if (LANG_NAMES[k] && k !== 'fr' && site.langs[k] && typeof site.langs[k] === 'object') C.langs[k] = { t: site.langs[k].t || {}, L: site.langs[k].L || {}, links: site.langs[k].links || {} };
+  C.blocks = sanitizeBlocks(site.blocks);
+  C.order = Array.isArray(site.order) ? site.order.filter(n => secsAll().includes(n)) : [];
+  C.langs = {}; for (const k in site.langs || {}) if (LANG_NAMES[k] && k !== 'fr' && site.langs[k] && typeof site.langs[k] === 'object') C.langs[k] = { t: site.langs[k].t || {}, L: site.langs[k].L || {}, links: site.langs[k].links || {}, blocks: Array.isArray(site.langs[k].blocks) ? site.langs[k].blocks : [] };
   C.theme = {}; for (const k in THEME_KEYS) if (typeof site.theme?.[k] === 'string' && /^#[0-9a-f]{6}$/i.test(site.theme[k])) C.theme[k] = site.theme[k];
+  if (FONTS[site.theme?.font]) C.theme.font = site.theme.font;
   const l = site.links || {}; C.links = { email: l.email || DEF.links.email, tiktok: l.tiktok || DEF.links.tiktok, instagram: l.instagram || DEF.links.instagram, seoTitle: l.seoTitle || '', seoDesc: l.seoDesc || '' };
 }
 const askMsg = (t, bad) => { $('askMsg').innerHTML = t; $('askMsg').style.color = bad ? '#c0262d' : '#4e5468'; };
@@ -1062,7 +1138,7 @@ if (APERCU) {
           if (!user) user = (await sb.auth.getSession()).data.session?.user || null;
           if (!user) throw new Error('session expirée, reconnecte-toi');
           applyAsk(m.site); render();
-          const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], theme: C.theme || {}, langs: C.langs || {}, L: C.L, v: 1 };
+          const data = { links: C.links, t: C.t, hide: C.hide, order: C.order || [], theme: C.theme || {}, langs: C.langs || {}, blocks: C.blocks || [], L: C.L, v: 1 };
           const { error } = rowExists ? await sb.from('flova_content').update({ data }).eq('id', 'site') : await sb.from('flova_content').insert({ id: 'site', data });
           if (error) throw error;
           rowExists = true;
@@ -1079,7 +1155,8 @@ if (APERCU) {
     for (const k in after.t) if (after.t[k] !== before.t[k]) { el = document.querySelector(`[data-k="${k}"]`); if (el) break; }
     if (!el) for (const k in after.L) if (JSON.stringify(after.L[k]) !== JSON.stringify(before.L[k])) { el = k === 'logos' ? document.querySelector('[data-s=clients]') : document.getElementById('L_' + k); if (el) break; }
     if (!el && JSON.stringify(after.order) !== JSON.stringify(before.order)) { const i = after.order.findIndex((n, j) => n !== before.order[j]); el = document.querySelector(`[data-s="${after.order[i]}"]`); }
-    if (!el) for (const k of SECS) if (!!after.hide[k] !== !!before.hide[k]) { el = document.querySelector(`[data-s="${k}"]`); if (after.hide[k]) { const n = SECS.indexOf(k); el = document.querySelector(`[data-s="${SECS[n + 1] || SECS[n - 1]}"]`); } break; }
+    if (!el) { const SS = secsAll(); for (const k of SS) if (!!after.hide[k] !== !!before.hide[k]) { el = document.querySelector(`[data-s="${k}"]`); if (after.hide[k]) { const n = SS.indexOf(k); el = document.querySelector(`[data-s="${SS[n + 1] || SS[n - 1]}"]`); } break; } }
+    if (!el && JSON.stringify(after.blocks) !== JSON.stringify(before.blocks)) { const nb = (after.blocks || []).find(b => !(before.blocks || []).some(o => JSON.stringify(o) === JSON.stringify(b))); if (nb) el = nb.type === 'bandeau' ? $('annbar') : document.querySelector(`[data-s="x_${nb.id}"]`); }
     if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   });
   window.addEventListener('load', () => { try { parent.postMessage({ type: 'apercu-pret' }, location.origin); } catch (x) {} });
@@ -1095,6 +1172,7 @@ function apply(d) {
   if (Array.isArray(d.order)) C.order = d.order;
   if (d.theme && typeof d.theme === 'object') C.theme = d.theme;
   if (d.langs && typeof d.langs === 'object') C.langs = d.langs;
+  C.blocks = sanitizeBlocks(d.blocks);
   if (d.L) for (const k in DEF.L) if (Array.isArray(d.L[k])) C.L[k] = d.L[k];
 }
 render();

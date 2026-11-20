@@ -37,7 +37,8 @@ Structure du contenu :
 - "hide" : section -> true pour la masquer. Sections : ${SECTIONS.join(", ")}.
 - "order" : ordre d'affichage des sections (liste de noms de sections).
 - "links" : email, tiktok, instagram, seoTitle, seoDesc.
-- "theme" : couleurs du site en hexadécimal #rrggbb : bg (fond), card (fond des cartes), ink (texte), mute (texte secondaire), accent (couleur principale : mots en couleur, boutons bleus, chiffres), soft (texte d'accroche). Une clé absente garde la couleur d'origine (fond noir #06070b, accent bleu #2f5bff).
+- "blocks" : sections ajoutées (liste complète, dans l'ordre), chacune {id, type, eyebrow, title, text, button, url, address, phone, items}. Types : "faq" (items: q, a), "avis" (items: name, role, text, stars 1-5), "galerie" (items: img, t), "video" (url d'une vidéo TikTok, YouTube ou Instagram), "horaires" (items: d jour, h heures ; address ; phone ; affiche un plan), "texte" (title, text), "cta" (title, text, button : appel à l'action vers le contact), "equipe" (items: name, role, img), "bandeau" (text, button : annonce tout en haut du site). Une section ajoutée apparaît dans "order" et "hide" sous le nom "x_" + son id.
+- "theme" : police des titres "font" parmi archivo (d'origine, large et moderne), serif (Playfair, chic), elegant (DM Serif, luxe), rond (Poppins, chaleureux), grotesk (Space Grotesk, tech), impact (Bebas, street) ; et couleurs du site en hexadécimal #rrggbb : bg (fond), card (fond des cartes), ink (texte), mute (texte secondaire), accent (couleur principale : mots en couleur, boutons bleus, chiffres), soft (texte d'accroche). Une clé absente garde la couleur d'origine (fond noir #06070b, accent bleu #2f5bff).
 
 Règles :
 0. AGIS D'ABORD. Le propriétaire veut un résultat, pas des questions. Si la demande est vague, courte, mal orthographiée ou dictée à la voix, choisis l'interprétation la plus probable et applique-la tout de suite : il peut toujours annuler. Ne réponds jamais seulement « précise-moi ».
@@ -52,7 +53,9 @@ Règles :
 7. Conseil, avis, idées, audit (« qu'est-ce que tu en penses », « comment améliorer mon site », « donne-moi des idées ») : ne change rien, "type": "conseil". Dans "resume", donne 3 améliorations précises pour CE site, chacune en une phrase avec le pourquoi (jamais de généralités). Mets ces 3 améliorations dans "choix", écrites comme des demandes prêtes à appliquer TOUT DE SUITE avec ce que tu sais déjà : jamais une idée qui demanderait un chiffre, un nom, un logo ou une info que tu n'as pas. Interdits dans les idées : étude de cas, témoignage, nouveau client, nouveau chiffre, prix, logo, photo à fournir. Autorisés : réécrire, raccourcir, réordonner, mettre en avant, masquer, traduire, reformuler un bouton ou une accroche, en utilisant uniquement ce qui est déjà dans le site. Ne fais pas de commentaire sur ta propre méthode (« je ne touche à rien… »), donne les idées directement.
 8. Langues : le site est multilingue. Le français ("t", "L") reste TOUJOURS la langue principale : ne le traduis jamais à sa place. « Traduis le site en anglais », « ajoute l'anglais », « mets le site en néerlandais » = tu ajoutes une version dans "langs" : "langs": {"en": "traduire"} (le site fait lui-même la traduction complète, naturelle et idiomatique ; tu n'écris aucune traduction). Codes : en, nl, de, es, it, tr, ar, pt. Les visiteurs choisissent ensuite leur langue avec le sélecteur en haut du site. « Supprime l'anglais » = "langs": {"en": null}. « Remets le site en français » : il l'est déjà, la base est en français ; dis-le simplement. « Mets à jour les traductions » = "langs": {chaque langue existante: "traduire"}. Après une modification du texte français, si des langues existent, propose dans "choix" « Mets à jour les traductions ». "type": "fait".
 6. Couleurs et ambiance : c'est une demande normale, "type": "fait". Change "theme" avec des couleurs harmonieuses, élégantes et lisibles (jamais criardes) : « fond rouge » = bg rouge profond (ex. #5c0a12) avec card un ton proche (#3f070d) et accent assorti ; « site clair / fond blanc » = bg #f6f7fb, card #ffffff, ink #0b0d14, mute #4e5468, soft #2b3040 ; « couleur de ma marque » donnée en mots ou en code = accent. « Remets les couleurs d'origine » = toutes les clés de theme à "". Le site corrige seul la lisibilité si besoin.
-   Restent hors de ta portée : polices, mise en page, taille des éléments, nouvelle page, nouvelle fonction, nouvelle section, vidéo hébergée. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, listes, sections, couleurs, liens) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
+   Ambiances (« fais plus luxe », « style street », « plus minimal », « plus chaleureux », « mode clair ») : change d'un coup la police ET les couleurs, de façon cohérente. Exemples : luxe = elegant, bg #0b0a08, card #15130f, accent #c9a45c ; street = impact, bg #0a0a0a, accent #ff3b30 ; minimal clair = archivo, bg #ffffff, card #f4f4f6, ink #0b0d14, mute #5b6070, accent #111111 ; chaleureux = rond, bg #1b120c, card #24180f, accent #ff8a3d ; tech = grotesk, bg #05070d, accent #4f7cff.
+9. Nouvelles sections : « ajoute une FAQ », « mets nos horaires et le plan », « ajoute ma vidéo TikTok <lien> », « ajoute un bandeau promo », « présente l'équipe », « ajoute une galerie », « ajoute un appel à l'action » = tu ajoutes un bloc dans "blocks" (donne la liste complète, en gardant les blocs existants) et tu le places au bon endroit dans "order". Pour une FAQ, écris 4 à 6 questions-réponses utiles à partir des faits du site. N'invente jamais d'avis clients, d'adresse, d'horaires, de téléphone, de membres d'équipe ou de lien vidéo : s'il manque ces infos, pose UNE question ("type": "question") avec 2 ou 3 réponses possibles dans "choix". Galerie : uniquement des images déjà présentes ou envoyées. « Supprime la FAQ » = retire le bloc de la liste.
+   Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
 {"changes": {
@@ -61,7 +64,8 @@ Réponds uniquement avec un objet JSON de cette forme :
    "hide": {seulement les sections dont l'état change : true pour masquer, false pour afficher},
    "order": [la liste complète des sections dans le nouvel ordre, seulement si l'ordre change],
    "links": {seulement les liens modifiés},
-   "theme": {seulement les couleurs modifiées},
+   "theme": {seulement les couleurs ou la police modifiées},
+   "blocks": [la liste complète des sections ajoutées, seulement si elle change],
    "langs": {seulement les langues ajoutées, mises à jour ou supprimées}
  },
  "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
@@ -71,6 +75,23 @@ Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`
 
 const LANGS = ["en", "nl", "de", "es", "it", "tr", "ar", "pt"];
 const THEME = ["bg", "card", "ink", "mute", "accent", "soft"];
+const FONTS = ["archivo", "serif", "rond", "grotesk", "impact", "elegant"];
+const BTYPES = ["faq", "avis", "galerie", "video", "horaires", "texte", "cta", "equipe", "bandeau"];
+const S = (v: unknown, n = 600) => typeof v === "string" ? v.slice(0, n) : "";
+function blocksOk(list: unknown) {
+  if (!Array.isArray(list)) return null;
+  return list.filter((b: any) => b && BTYPES.includes(b.type)).slice(0, 12).map((b: any, i: number) => ({
+    id: /^[a-z0-9]{1,12}$/.test(b.id || "") ? b.id : "b" + Date.now().toString(36).slice(-4) + i,
+    type: b.type, eyebrow: S(b.eyebrow, 60), title: S(b.title, 140), text: S(b.text, 1200), button: S(b.button, 40), url: S(b.url, 400), address: S(b.address, 200), phone: S(b.phone, 40),
+    items: (Array.isArray(b.items) ? b.items : []).slice(0, 12).filter((x: any) => x && typeof x === "object").map((x: any) => ({ q: S(x.q, 200), a: S(x.a, 900), name: S(x.name, 80), role: S(x.role, 80), text: S(x.text, 500), stars: Math.max(0, Math.min(5, Number(x.stars) || 0)), img: S(x.img, 400), t: S(x.t, 120), d: S(x.d, 60), h: S(x.h, 80) })),
+  }));
+}
+/* ce que chaque offre permet (décision du conseil du 19/11, détaillée le 20/11) */
+const PLANS: Record<string, { label: string; quota: number; theme: boolean; blocks: boolean; langs: number }> = {
+  gratuit: { label: "Gratuit", quota: 30, theme: false, blocks: false, langs: 1 },
+  pro: { label: "Pro", quota: 300, theme: true, blocks: true, langs: 3 },
+  commerce: { label: "Commerce", quota: 1000, theme: true, blocks: true, langs: 8 },
+};
 const HEX = /^#[0-9a-f]{6}$/i;
 function lum(h: string) { const n = parseInt(h.slice(1), 16); const c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; }
 const ratio = (a: string, b: string) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
@@ -89,10 +110,17 @@ function clean(ch: any, prev: any) {
   const n = { t: 0, L: 0, hide: 0, order: 0, links: 0, theme: 0 };
   const pth = prev.theme && typeof prev.theme === "object" ? prev.theme : {};
   for (const k of THEME) if (typeof pth[k] === "string" && HEX.test(pth[k])) out.theme[k] = pth[k];
+  if (FONTS.includes(pth.font)) out.theme.font = pth.font;
+  out.blocks = blocksOk(prev.blocks) || [];
+  let nb = 0;
+  const cb = blocksOk(ch?.blocks);
+  if (cb && JSON.stringify(cb) !== JSON.stringify(out.blocks)) { out.blocks = cb; nb++; }
+  const SECS = [...SECTIONS, ...out.blocks.filter((b: any) => b.type !== "bandeau").map((b: any) => "x_" + b.id)];
   const cth = ch?.theme && typeof ch.theme === "object" ? ch.theme : null;
   if (cth) {
     const before = JSON.stringify(out.theme);
     for (const k of THEME) if (k in cth) { const v = cth[k]; if (typeof v === "string" && HEX.test(v)) out.theme[k] = v.toLowerCase(); else if (v === "" || v === null) delete out.theme[k]; }
+    if ("font" in cth) { if (FONTS.includes(cth.font) && cth.font !== "archivo") out.theme.font = cth.font; else delete out.theme.font; }
     if (Object.keys(out.theme).length) readable(out.theme);
     if (JSON.stringify(out.theme) !== before) n.theme++;
   }
@@ -120,19 +148,19 @@ function clean(ch: any, prev: any) {
     const v = ch?.L?.[k];
     if (Array.isArray(v) && v.every((x: unknown) => x && typeof x === "object")) { out.L[k] = v; n.L++; } else out.L[k] = prev.L?.[k] || [];
   }
-  for (const k of SECTIONS) {
+  for (const k of SECS) {
     const v = ch?.hide?.[k], was = prev.hide?.[k] === true;
     const now = typeof v === "boolean" ? v : was;
     if (now) out.hide[k] = true;
     if (now !== was) n.hide++;
   }
-  const before = Array.isArray(prev.order) && prev.order.length ? prev.order : SECTIONS;
-  const order = Array.isArray(ch?.order) ? ch.order.filter((s: string) => SECTIONS.includes(s)) : [];
-  out.order = [...new Set([...(order.length ? order : before), ...SECTIONS])];
-  if (out.order.join() !== [...new Set([...before, ...SECTIONS])].join()) n.order++;
+  const before = (Array.isArray(prev.order) && prev.order.length ? prev.order : SECTIONS).filter((x: string) => SECS.includes(x));
+  const order = Array.isArray(ch?.order) ? ch.order.filter((x: string) => SECS.includes(x)) : [];
+  out.order = [...new Set([...(order.length ? order : before), ...SECS])];
+  if (out.order.join() !== [...new Set([...before, ...SECS])].join()) n.order++;
   const links = ch?.links && typeof ch.links === "object" ? ch.links : {};
   for (const k of ["email", "tiktok", "instagram", "seoTitle", "seoDesc"]) if (typeof links[k] === "string" && links[k] !== out.links[k]) { out.links[k] = links[k]; n.links++; }
-  return { site: out, count: n.t + n.L + n.hide + n.order + n.links + n.theme + nl, langs: Object.keys(cl).filter(k => LANGS.includes(k)) };
+  return { site: out, count: n.t + n.L + n.hide + n.order + n.links + n.theme + nl + nb, used: { theme: n.theme > 0, blocks: nb > 0, langs: Object.keys(out.langs).length }, langs: Object.keys(cl).filter(k => LANGS.includes(k)) };
 }
 
 const LANG_FULL: Record<string, string> = { en: "anglais", nl: "néerlandais", de: "allemand", es: "espagnol", it: "italien", tr: "turc", ar: "arabe", pt: "portugais" };
@@ -156,12 +184,14 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   const lang = LANG_FULL[code] || code;
   const textL: any = {};
   for (const k of LISTS) if (Array.isArray(base.L?.[k])) textL[k] = base.L[k];
-  const [a, b, c] = await Promise.all([
+  const blk = Array.isArray(base.blocks) && base.blocks.length ? base.blocks.map((x: any) => ({ eyebrow: x.eyebrow, title: x.title, text: x.text, button: x.button, items: (x.items || []).map((i: any) => ({ q: i.q, a: i.a, name: i.name, role: i.role, text: i.text, t: i.t, d: i.d, h: i.h })) })) : null;
+  const [a, b, c, d] = await Promise.all([
     callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: base.t || {} })),
     callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: textL }), 12000),
     callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600),
+    blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null }),
   ]);
-  for (const x of [a, b, c]) if (x.out) await log(x.out);
+  for (const x of [a, b, c, d]) if (x.out) await log(x.out);
   if (!a.data?.t || !b.data?.L) return null;
   const tr: any = { t: {}, L: {}, links: {} };
   for (const k of Object.keys(base.t || {})) if (typeof a.data.t[k] === "string") tr.t[k] = a.data.t[k];
@@ -171,6 +201,7 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
     /* on garde les images et champs techniques de la version française */
     tr.L[k] = dst.map((x: any, i: number) => { const o = { ...src[i], ...(x && typeof x === "object" ? x : {}) }; for (const f of ["img", "logo", "photo", "i"]) if (f in src[i]) o[f] = src[i][f]; return o; });
   }
+  if (blk && Array.isArray(d.data?.blocks) && d.data.blocks.length === base.blocks.length) tr.blocks = base.blocks.map((o: any, i: number) => { const x = d.data.blocks[i] || {}; return { ...o, eyebrow: S(x.eyebrow) || o.eyebrow, title: S(x.title) || o.title, text: S(x.text, 1200) || o.text, button: S(x.button) || o.button, items: (o.items || []).map((it: any, j: number) => { const y = x.items?.[j] || {}; const r: any = { ...it }; for (const f of ["q", "a", "name", "role", "text", "t", "d", "h"]) if (typeof y[f] === "string" && y[f]) r[f] = y[f]; return r; }) }; });
   if (typeof c.data?.seoTitle === "string") tr.links.seoTitle = c.data.seoTitle;
   if (typeof c.data?.seoDesc === "string") tr.links.seoDesc = c.data.seoDesc;
   return Object.keys(tr.t).length > Object.keys(base.t || {}).length * 0.8 ? tr : null;
@@ -212,6 +243,13 @@ Deno.serve(async (req) => {
     }
     const who = demo ? null : (await sb.auth.getUser()).data;
 
+    if (!demo) {
+      const pk = String((await db.from("flova_settings").select("value").eq("key", "plan").maybeSingle()).data?.value || "commerce").replace(/"/g, "");
+      const pl = PLANS[pk] || PLANS.commerce;
+      const debut = new Date(); debut.setUTCDate(1); debut.setUTCHours(0, 0, 0, 0);
+      const { count: faites } = await db.from("flova_ai_usage").select("id", { count: "exact", head: true }).gte("at", debut.toISOString()).neq("author", "démo").not("instruction", "like", "[traduction]%");
+      if ((faites || 0) >= pl.quota) return json({ count: 0, type: "offre", choix: [], resume: `Tu as utilisé tes ${pl.quota} demandes du mois avec l'offre ${pl.label}. Elles se rechargent le 1er du mois, ou passe à l'offre supérieure pour continuer tout de suite.` });
+    }
     const key = Deno.env.get("DEEPSEEK_API_KEY");
     if (!key) return json({ error: "L'assistant n'est pas encore activé (clé manquante)." }, 503);
 
@@ -225,11 +263,11 @@ Deno.serve(async (req) => {
           { role: "user", content: `Contenu actuel (en français, langue principale) :\n${JSON.stringify({ ...site, langs: undefined })}\n\nLangues déjà traduites : ${Object.keys(site?.langs || {}).join(", ") || "aucune"}\n\nDemande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
         ],
       });
-    const logUse = (out: any, changed: boolean) => {
+    const logUse = (out: any, changed: boolean, tag = "") => {
       const u = out?.usage || {};
       const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
       const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
-      return db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: instruction.trim().slice(0, 300) });
+      return db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: (tag + instruction.trim()).slice(0, 300) });
     };
     // Deux essais : une réponse coupée ou mal formée est redemandée une fois, sans jamais montrer d'erreur technique.
     let parsed: any = null, lastOut: any = null;
@@ -244,13 +282,18 @@ Deno.serve(async (req) => {
       if (!parsed || typeof parsed !== "object") { parsed = null; await logUse(out, false); console.error("réponse IA illisible, essai", essai + 1); }
     }
     if (!parsed) return json({ error: "Je n'ai pas bien compris. Reformule ta demande en une phrase simple." }, 502);
+    const planKey = demo ? "commerce" : String((await db.from("flova_settings").select("value").eq("key", "plan").maybeSingle()).data?.value || "commerce").replace(/"/g, "");
+    const plan = PLANS[planKey] || PLANS.commerce;
     const cleaned = clean(parsed.changes || {}, site);
+    const usage: any = (cleaned as any).used || {};
+    const locked = (usage.theme && !plan.theme) ? "les couleurs, les polices et les ambiances" : (usage.blocks && !plan.blocks) ? "les nouvelles sections" : (usage.langs > plan.langs) ? `plus de ${plan.langs} langue${plan.langs > 1 ? "s" : ""} en plus du français` : "";
+    if (locked) { await logUse(lastOut, false); return json({ count: 0, type: "offre", choix: [], resume: `Avec l'offre ${plan.label}, ${locked} ne sont pas inclus. Passe à l'offre ${planKey === "gratuit" ? "Pro (9 € par mois)" : "Commerce (19 € par mois)"} pour le faire en un message.` }); }
     const next = cleaned.site, touched = cleaned.langs;
     let count = cleaned.count;
     const pending: string[] = next.pending || []; delete next.pending;
     let failed: string[] = [];
     if (pending.length) {
-      const res = await Promise.all(pending.map(code => translateSite(key, code, next, (o: any) => logUse(o, true))));
+      const res = await Promise.all(pending.map(code => translateSite(key, code, next, (o: any) => logUse(o, true, "[traduction] "))));
       res.forEach((tr, i) => { if (tr) { next.langs[pending[i]] = tr; count++; } else failed.push(pending[i]); });
     }
     await logUse(lastOut, count > 0);

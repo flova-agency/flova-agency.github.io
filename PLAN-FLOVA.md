@@ -47,6 +47,9 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 - [x] **29. Statistiques de visites sans cookie** — visites du jour, de la semaine, part sur téléphone, langues, sections les plus vues. Fait si : une visite test apparaît en moins de 10 s et rien d'identifiant n'est stocké. Preuve : table flova_visits (compteurs par jour, lecture réservée aux éditeurs, écriture seulement par flova_hit), anonyme refusé en lecture et en écriture directe ; tests/visites_test.py OK sur iPhone 15 et ordinateur (1 visite par session, sections vues, source, langue) ; « 📈 Mes visites » dans /studio, 43/43 le 20/11 vers 4 h 45.
 - [x] **30. Messages reçus par le formulaire de contact dans le studio** — Fait si : un message envoyé depuis le site apparaît dans le studio avec réponse en un toucher (mail). Preuve : table flova_messages (lecture réservée aux éditeurs), fonction flova-demande action « contact » (anti-abus par adresse et plafond global, piège à robots, mail au propriétaire avec réponse directe au visiteur), envoi réel testé en mode test puis nettoyé ; tests/contact_test.py 4/4 (envoi, et secours messagerie en cas de panne) ; « ✉️ Messages » avec pastille des non-lus, Répondre, Appeler, WhatsApp ; studio 46/46 le 20/11 vers 4 h 20.
 - [x] **31. Traduction plus rapide avec progression visible** — Fait si : moins de 15 s pour une langue, et l'écran montre l'avancement. Preuve : raccourci sans premier appel à l'IA pour « ajoute l'anglais » et équivalents, textes découpés par 14 et listes par 6 en parallèle, morceau raté redemandé seul ; mesures en direct 13,7 à 20 s selon la langue (l'objectif de 15 s n'est atteint qu'une fois sur deux, limite = vitesse d'écriture du modèle) ; barre de progression et étapes « je traduis les titres… » visibles, test iPhone 15 réussi (47/47) le 20/11 vers 5 h.
+- [ ] **34. La démo publique reçoit les nouveautés montrables** — 3 styles au choix (aperçu puis « garder » dans la démo), présentation des possibilités. Fait si : demo_e2e et full_demo verts, et parcours iPhone capturé.
+- [ ] **35. Barre de choix de style flottante** — quand la conversation est repliée pendant l'essai des 3 styles, une petite barre permet de passer d'un style à l'autre et de garder, sans rouvrir la conversation. Fait si : testé sur iPhone SE.
+- [ ] **36. Banc de régression de l'assistant élargi** — ajout des cas « analyse », « 3 styles », « traduction rapide », « idées après changement ». Fait si : tests/assistant_regression.py vert deux fois de suite.
 - [ ] **32. Régression complète et gel à 10 h** — assistant, studio, démo, sécurité, tous verts sur la version en ligne.
 - [ ] **33. PDF des nouveautés pour Karim avant 10 h 45.**
 
@@ -62,6 +65,8 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 - [ ] **16. Mail « version finale » à Fukay** — Fait si : invitations acceptées ou relancées, parcours complet testé sur iPhone la veille, mail parti depuis noreply avec les fiches à jour.
 
 ## Journal
+
+- 20/11, de 3 h 35 à 6 h 15 : étapes 24 à 31 livrées (idées suivantes, analyse sur 100, 3 styles, versions, partage Google et QR, visites sans cookie, messages du formulaire, traduction plus rapide avec progression). Studio 47/47, formulaire 4/4, visites OK. Fautes 39 à 47 consignées dans le Drive (cerveau-apports, claude-ai-flova-20261120-matin.md).
 
 - 20/11, nuit : étapes 17 à 21 faites et testées en direct ; 22 prête, en attente des deux clés ; fautes 22 à 38 consignées.
 

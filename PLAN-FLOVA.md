@@ -25,6 +25,16 @@ Promesse faite à Fukay le 19/11 : une mise à jour par jour pendant 7 jours, pu
 - [x] **10. Photos par l'assistant sur le vrai site** — Fait si : depuis ✦ Demander sur iPhone, on envoie une photo et on dit « mets-la à la place de… », la photo est redimensionnée, stockée et en ligne, et « Revenir comme avant » fonctionne. Preuve : flovaagency.com/studio, envoi de photo testé sur iPhone 15 le 19/11 à 23 h 4x (stockage simulé pour le test, à confirmer en réel par Karim).
 - [x] **11. ✦ Demander en mode conversation sur le vrai site** — Même expérience que la démo : fil de messages, choix à toucher, avant/après. Fait si : parcours iPhone capturé et validé par Karim. Preuve : page /studio, tests 19/19 sur iPhone 15, iPhone SE et ordinateur le 19/11 (connexion, modification enregistrée, annuler enregistré, hors champ avec envoi à Uxlab, photo). Reste : validation de Karim.
 
+## Version évoluée (nuit du 19 au 20/11, objectif produit fini à 10 h)
+
+- [x] **17. Site multilingue** — Le français reste la base, chaque langue est stockée à côté, et les visiteurs ont un sélecteur (boutons sur ordinateur, menu compact sur téléphone). La traduction est faite par le serveur en appels parallèles. Preuve : test en direct, anglais ajouté en environ 25 s ; titre FR « Nous créons l'attention. », EN « We make people stop scrolling. ».
+- [x] **18. Ambiances, polices et couleurs par l'assistant** — Luxe, street, minimal, chaleureux, tech, clair. La lisibilité est garantie par le serveur, et la couleur choisie est respectée (texte foncé sur un accent clair). Preuve : test en direct « Rends le site plus luxe » en 8 s, puis retour à l'origine en 6 s.
+- [x] **19. Nouvelles sections par l'assistant** — FAQ, avis, galerie, vidéo TikTok/YouTube/Instagram, horaires et plan, équipe, appel à l'action, bandeau d'annonce. Elles sont rangées dans l'ordre des sections, masquables et traduites avec le site. Preuve : FAQ en 14 s, bandeau en 9 s, vidéo en 8 s ; les horaires manquants donnent lieu à une question.
+- [x] **20. Offres et quotas appliqués par le serveur** — Gratuit 30 demandes par mois, Pro 300, Commerce 1 000 ; ambiances et sections à partir de Pro ; langues 1/3/8. Quand une demande dépasse l'offre, le client voit la proposition de passer à l'offre supérieure. Réglage « plan » dans flova_settings ; par défaut Commerce pour le site de Fukay.
+- [x] **21. Recherche de nom de domaine en direct** — Dans la conversation, l'assistant donne les adresses libres en 6 à 9 s (registres officiels et serveurs de noms). Preuve : test en direct.
+- [ ] **22. Achat de nom de domaine sans intervention** — Paiement du client par carte ou Bancontact (Stripe), puis achat à son nom et branchement automatiques (Vercel), renouvellement annuel, remboursement automatique en cas d'échec, plafond de 60 € et marge de 3 €. Code en ligne (fonction flova-domaine) ; interface testée avec des réponses simulées. Bloquant : Karim se connecte une fois à Vercel et à Stripe pour créer les deux clés (VERCEL_TOKEN, STRIPE_SECRET_KEY).
+- [ ] **23. Tests réels du parcours complet par Karim sur son téléphone, puis activation de l'IA pour Fukay (étape 7).**
+
 ## Liaison usine (J+2 à J+4)
 
 - [ ] **12. USINE_KEY et relève automatique depuis cerveau-1** — Fait si : une demande approuvée devient une fiche `usine/*`, la branche est relue et fusionnée par le pilote, la demande passe à « en ligne » et l'auteur reçoit le mail, le tout en moins d'une heure de bout en bout avec une demande test.
@@ -37,5 +47,7 @@ Promesse faite à Fukay le 19/11 : une mise à jour par jour pendant 7 jours, pu
 - [ ] **16. Mail « version finale » à Fukay** — Fait si : invitations acceptées ou relancées, parcours complet testé sur iPhone la veille, mail parti depuis noreply avec les fiches à jour.
 
 ## Journal
+
+- 20/11, nuit : étapes 17 à 21 faites et testées en direct ; 22 prête, en attente des deux clés ; fautes 22 à 38 consignées.
 
 - 19/11 : étapes 1 à 6 faites. 21 fautes consignées dans cerveau-apports (claude-ai-flova-20261119*.md).

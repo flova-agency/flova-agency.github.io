@@ -1159,7 +1159,7 @@ if (APERCU) {
     if (!el && JSON.stringify(after.order) !== JSON.stringify(before.order)) { const i = after.order.findIndex((n, j) => n !== before.order[j]); el = document.querySelector(`[data-s="${after.order[i]}"]`); }
     if (!el) { const SS = secsAll(); for (const k of SS) if (!!after.hide[k] !== !!before.hide[k]) { el = document.querySelector(`[data-s="${k}"]`); if (after.hide[k]) { const n = SS.indexOf(k); el = document.querySelector(`[data-s="${SS[n + 1] || SS[n - 1]}"]`); } break; } }
     if (!el && JSON.stringify(after.blocks) !== JSON.stringify(before.blocks)) { const nb = (after.blocks || []).find(b => !(before.blocks || []).some(o => JSON.stringify(o) === JSON.stringify(b))); if (nb) el = nb.type === 'bandeau' ? $('annbar') : document.querySelector(`[data-s="x_${nb.id}"]`); }
-    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: el.matches('section,.annbar') || el.offsetHeight > innerHeight * .6 ? 'start' : 'center' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   });
   window.addEventListener('load', () => { try { parent.postMessage({ type: 'apercu-pret' }, location.origin); } catch (x) {} });
 }

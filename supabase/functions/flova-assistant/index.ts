@@ -188,17 +188,46 @@ async function callJson(key: string, system: string, user: string, max = 8000) {
   }
   return { data: null, out: null };
 }
+/* ---------- mémoire de traduction commune : une phrase traduite une fois sert à tous les sites, sans nouvel appel à l'IA ---------- */
+const NOTR = new Set(["img", "logo", "photo", "i", "url", "href"]);
+async function tmHash(s: string) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim())); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("").slice(0, 32); }
+function tmOk(s: unknown): s is string { return typeof s === "string" && s.trim().length > 0 && s.length <= 1200 && !/^(https?:|data:|\/|#|mailto:|tel:)/.test(s.trim()) && /\p{L}/u.test(s); }
+function itemTexts(o: any): string[] { return o && typeof o === "object" ? Object.entries(o).filter(([f, v]) => !NOTR.has(f) && tmOk(v)).map(([, v]) => v as string) : []; }
+async function tmGet(db: any, code: string, texts: string[]): Promise<Map<string, string>> {
+  const m = new Map<string, string>(); const uniq = [...new Set(texts.filter(tmOk))]; if (!db || !uniq.length) return m;
+  try {
+    const hs = await Promise.all(uniq.map(tmHash)); const byH = new Map(hs.map((x, i) => [x, uniq[i]]));
+    for (let i = 0; i < hs.length; i += 150) { const { data } = await db.from("flova_tm").select("h,dst").eq("lang", code).in("h", hs.slice(i, i + 150)); for (const r of data || []) { const src = byH.get(r.h); if (src && typeof r.dst === "string") m.set(src, r.dst); } }
+    if (m.size) await db.rpc("flova_tm_hit", { p_lang: code, p_h: await Promise.all([...m.keys()].map(tmHash)) });
+  } catch { /* la mémoire est un bonus : en cas de souci on traduit normalement */ }
+  return m;
+}
+async function tmPut(db: any, code: string, pairs: [unknown, unknown][]) {
+  if (!db) return;
+  try {
+    const seen = new Set<string>(), rows: any[] = [];
+    for (const [a, b] of pairs) { if (!tmOk(a) || typeof b !== "string" || !b.trim() || b.length > 1500) continue; const k = (a as string).trim(); if (seen.has(k)) continue; seen.add(k); rows.push({ lang: code, h: await tmHash(k), src: k, dst: b }); }
+    for (let i = 0; i < rows.length; i += 200) await db.from("flova_tm").upsert(rows.slice(i, i + 200), { onConflict: "lang,h", ignoreDuplicates: true });
+  } catch { /* rien : la traduction du site est déjà faite */ }
+}
 /* traduit tout le site en deux appels parallèles (textes fixes, listes) : rapide et fiable */
-async function translateSite(key: string, code: string, base: any, log: (o: any) => unknown) {
+async function translateSite(key: string, code: string, base: any, log: (o: any) => unknown, db: any = null) {
   const lang = LANG_FULL[code] || code;
   const textL: any = {};
   for (const k of LISTS) if (Array.isArray(base.L?.[k])) textL[k] = base.L[k];
   const blk = Array.isArray(base.blocks) && base.blocks.length ? base.blocks.map((x: any) => ({ eyebrow: x.eyebrow, title: x.title, text: x.text, button: x.button, items: (x.items || []).map((i: any) => ({ q: i.q, a: i.a, name: i.name, role: i.role, text: i.text, t: i.t, d: i.d, h: i.h })) })) : null;
   /* découpage fin : chaque liste et chaque moitié des textes partent en parallèle */
-  const tk = Object.keys(base.t || {}), CH = 14;
+  /* d'abord la mémoire commune : seules les phrases jamais traduites partent à l'IA */
+  const allT = Object.keys(base.t || {});
+  const listTexts: string[] = []; for (const k of LISTS) for (const it of (textL[k] || [])) listTexts.push(...itemTexts(it));
+  const mem = await tmGet(db, code, [...allT.map((k) => base.t[k]), ...listTexts]);
+  const preT: any = {}; for (const k of allT) { const v = base.t[k]; if (!tmOk(v)) preT[k] = v; else if (mem.has(v)) preT[k] = mem.get(v); }
+  const tk = allT.filter((k) => !(k in preT)), CH = 14;
   const tParts: any[] = []; for (let i = 0; i < tk.length; i += CH) tParts.push(Object.fromEntries(tk.slice(i, i + CH).map((k) => [k, base.t[k]])));
   const lkeys = Object.keys(textL).filter((k) => textL[k].length);
-  const lParts: [string, number, any[]][] = []; for (const k of lkeys) for (let i = 0; i < textL[k].length; i += 6) lParts.push([k, i, textL[k].slice(i, i + 6)]);
+  const fromMem = (it: any) => { const o: any = { ...it }; for (const [f, v] of Object.entries(it || {})) if (!NOTR.has(f) && tmOk(v)) o[f] = mem.get(v as string); return o; };
+  const lParts: [string, number, any[]][] = [], lMem: [string, number, any[]][] = [];
+  for (const k of lkeys) for (let i = 0; i < textL[k].length; i += 6) { const items = textL[k].slice(i, i + 6); (items.every((it: any) => itemTexts(it).every((v) => mem.has(v))) ? lMem : lParts).push([k, i, items]); }
   const pc = callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600);
   const pd = blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null });
   const all = await Promise.all([
@@ -210,9 +239,9 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   const tOf = (d: any) => (d && typeof d.t === "object" ? d.t : d && typeof d === "object" && !d.L ? d : null);
   /* un morceau raté est redemandé une fois de plus, seul */
   for (let i = 0; i < tParts.length; i++) if (!tOf(ts[i].data)) ts[i] = await callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[i] }), 4000);
-  const a = { data: { t: Object.assign({}, ...ts.map((x) => tOf(x.data) || {})) } };
+  const a = { data: { t: Object.assign({}, ...ts.map((x) => tOf(x.data) || {}), preT) } };
   const bL: any = {};
-  for (const k of lkeys) { const arr: any[] = []; let ok = true; lParts.forEach(([kk, i, items], j) => { if (kk !== k) return; const dd = ls[j].data, v = Array.isArray(dd?.L?.[k]) ? dd.L[k] : Array.isArray(dd?.[k]) ? dd[k] : Array.isArray(dd) ? dd : null; if (Array.isArray(v) && v.length === items.length) arr.splice(i, items.length, ...v); else ok = false; }); if (ok && arr.length === textL[k].length) bL[k] = arr; }
+  for (const k of lkeys) { const arr: any[] = []; let ok = true; for (const [kk, i, items] of lMem) if (kk === k) arr.splice(i, items.length, ...items.map(fromMem)); lParts.forEach(([kk, i, items], j) => { if (kk !== k) return; const dd = ls[j].data, v = Array.isArray(dd?.L?.[k]) ? dd.L[k] : Array.isArray(dd?.[k]) ? dd[k] : Array.isArray(dd) ? dd : null; if (Array.isArray(v) && v.length === items.length) arr.splice(i, items.length, ...v); else ok = false; }); if (ok && arr.length === textL[k].length) bL[k] = arr; }
   const b = { data: { L: bL } };
   const [c, d] = await Promise.all([pc, pd]);
   for (const x of [c, d]) if (x.out) await log(x.out);
@@ -228,7 +257,17 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   if (blk && Array.isArray(d.data?.blocks) && d.data.blocks.length === base.blocks.length) tr.blocks = base.blocks.map((o: any, i: number) => { const x = d.data.blocks[i] || {}; return { ...o, eyebrow: S(x.eyebrow) || o.eyebrow, title: S(x.title) || o.title, text: S(x.text, 1200) || o.text, button: S(x.button) || o.button, items: (o.items || []).map((it: any, j: number) => { const y = x.items?.[j] || {}; const r: any = { ...it }; for (const f of ["q", "a", "name", "role", "text", "t", "d", "h"]) if (typeof y[f] === "string" && y[f]) r[f] = y[f]; return r; }) }; });
   if (typeof c.data?.seoTitle === "string") tr.links.seoTitle = c.data.seoTitle;
   if (typeof c.data?.seoDesc === "string") tr.links.seoDesc = c.data.seoDesc;
-  return Object.keys(tr.t).length > Object.keys(base.t || {}).length * 0.8 ? tr : null;
+  const ok = Object.keys(tr.t).length > Object.keys(base.t || {}).length * 0.8;
+  if (ok) {
+    /* on enrichit la mémoire commune avec ce que l'IA vient de traduire */
+    const pairs: [unknown, unknown][] = [];
+    for (const k of tk) pairs.push([base.t[k], tr.t[k]]);
+    for (const k of LISTS) (tr.L[k] || []).forEach((x: any, i: number) => { const src = base.L?.[k]?.[i]; for (const f of Object.keys(src || {})) if (!NOTR.has(f)) pairs.push([src[f], x?.[f]]); });
+    (tr.blocks || []).forEach((x: any, i: number) => { const o = base.blocks?.[i] || {}; for (const f of ["eyebrow", "title", "text", "button"]) pairs.push([o[f], x[f]]); (o.items || []).forEach((it: any, j: number) => { for (const f of ["q", "a", "name", "role", "text", "t", "d", "h"]) pairs.push([it?.[f], x.items?.[j]?.[f]]); }); });
+    pairs.push([base.links?.seoTitle, tr.links.seoTitle], [base.links?.seoDesc, tr.links.seoDesc]);
+    await tmPut(db, code, pairs.filter(([a, b]) => a !== b || /^[\p{Lu}0-9]/u.test(String(a))));
+  }
+  return ok ? tr : null;
 }
 
 /* ---------- noms de domaine : disponibilité en direct ---------- */
@@ -375,7 +414,7 @@ Deno.serve(async (req) => {
     const pending: string[] = next.pending || []; delete next.pending;
     let failed: string[] = [];
     if (pending.length) {
-      const res = await Promise.all(pending.map(code => translateSite(key, code, next, (o: any) => logUse(o, true, "[traduction] "))));
+      const res = await Promise.all(pending.map(code => translateSite(key, code, next, (o: any) => logUse(o, true, "[traduction] "), db)));
       res.forEach((tr, i) => { if (tr) { next.langs[pending[i]] = tr; count++; } else failed.push(pending[i]); });
     }
     await logUse(lastOut, count > 0);

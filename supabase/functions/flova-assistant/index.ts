@@ -102,7 +102,7 @@ function readable(th: any) {
   best(4.5, "ink", "#f4f5f8");
   if (th.mute || th.bg) { const v = th.mute || "#9aa0b4"; if (ratio(v, bg) < 3.5) th.mute = lum(bg) < .4 ? "#c4c8d4" : "#4e5468"; }
   if (th.card && ratio(th.ink || "#f4f5f8", th.card) < 4.5) th.card = bg;
-  if (th.accent && ratio("#ffffff", th.accent) < 3) { /* bouton blanc sur accent illisible : on assombrit */ const n = parseInt(th.accent.slice(1), 16); const d = (x: number) => Math.round(x * .62); th.accent = "#" + [d(n >> 16 & 255), d(n >> 8 & 255), d(n & 255)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+  /* accent clair : le site met un texte foncé sur les boutons, on garde la couleur choisie */
   return th;
 }
 function clean(ch: any, prev: any) {

@@ -35,6 +35,20 @@ Promesse faite à Fukay le 19/11 : une mise à jour par jour pendant 7 jours, pu
 - [ ] **22. Achat de nom de domaine sans intervention** — Paiement du client par carte ou Bancontact (Stripe), puis achat à son nom et branchement automatiques (Vercel), renouvellement annuel, remboursement automatique en cas d'échec, plafond de 60 € et marge de 3 €. Code en ligne (fonction flova-domaine) ; interface testée avec des réponses simulées. Bloquant : Karim se connecte une fois à Vercel et à Stripe pour créer les deux clés (VERCEL_TOKEN, STRIPE_SECRET_KEY).
 - [ ] **23. Tests réels du parcours complet par Karim sur son téléphone, puis activation de l'IA pour Fukay (étape 7).**
 
+## PRÉSENTABLE avant le 21/11 à 9 h 30 — décision de Karim du 20/11 à 9 h 30 (prioritaire sur tout le reste)
+
+« Présentable » (défini par le conseil) : un scénario de démonstration complet joué au vert par le robot, sur iPhone et sur ordinateur, sur le vrai site flovaagency.com : connexion Google → ✦ Demander → modifications → annuler → vue visiteur.
+Règle : « fait » = prouvé en production, jamais seulement « prêt ». Tout ce qui n'est pas indispensable à ce scénario passe après. Le cerveau suit l'avancement toutes les 30 minutes.
+
+- [ ] **P1. Connexion Google active en production** — la clé secrète du client Google est collée dans Supabase (geste de Karim : coller un secret), le fournisseur Google passe à « actif ». Preuve attendue : /auth/v1/settings indique google = true, et le bouton « Continuer avec Google » de /studio mène à l'écran Google du projet Flova.
+- [ ] **P2. Application Google ouverte à Furkan** — page de confidentialité publiée sur flovaagency.com (/confidentialite), puis application Google publiée, ou à défaut l'adresse Google de Furkan ajoutée aux testeurs. Preuve : l'écran Google n'affiche plus « application non validée » pour une adresse hors testeurs.
+- [ ] **P3. Robot du scénario de présentation** — tests/scenario_presentation.py, sur le vrai site : ouverture du site visiteur, ✦ Demander (barre d'édition du site → /studio), connexion, 2 modifications, Annuler, vue visiteur dans une session neuve (changement visible, puis retiré), garde-fou qui remet le site exactement comme avant même en cas d'échec. Connexion : Google réel dans le Chrome de Karim (ordinateur) ; code par e-mail lu automatiquement dans la boîte autorisée (iPhone, car le robot ne peut pas saisir de mot de passe Google).
+- [ ] **P4. Scénario vert en production sur iPhone et ordinateur** — preuve : captures horodatées de chaque étape et rapport du robot, joints au journal.
+- [ ] **P5. Feuille de démonstration pour Karim** — le déroulé exact à montrer à Furkan (5 étapes, 3 minutes), avec ce qu'il faut dire.
+
+Parallélisable (fiches pour l'ouvrier de cerveau-1, usine/fiches/) : page de confidentialité (P2), guide « Demander » mis à jour avec les nouveautés, nettoyage des données de test de la démo.
+Après la présentation : domaines (Stripe et Vercel), plan des étapes 8, 9, 12 à 16, 33.
+
 ## Version 11 h (nuit du 20/11) — demandée par Karim à 3 h 35 : 3 à 4 fois plus évoluée, éblouissante
 
 Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne, cochée avec preuve.

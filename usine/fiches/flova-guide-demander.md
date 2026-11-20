@@ -4,7 +4,7 @@
 Les PDF remis à Fukay (« Flova - Guide du site » et « Flova - Fiche des accès ») ne parlent pas encore de l'assistant ✦ Demander ni de la page /studio.
 
 ## À faire
-1. Rédiger en markdown, dans usine/livrables/guide-assistant.md, un chapitre « Parler à ton site » : ouvrir flovaagency.com/studio (ou ✦ Demander dans la barre), écrire ou dicter, « Voir avant », « Annuler », envoyer une photo, idées, ce que l'assistant ne fait pas (design), puis « Envoyer à Uxlab ». Tutoiement, phrases courtes, aucun jargon.
+1. Rédiger en markdown, dans usine/livrables/guide-assistant.md, un chapitre « Parler à ton site » : ouvrir flovaagency.com/studio (ou ✦ Demander dans la barre), écrire ou dicter, « Voir avant », « Annuler », envoyer une photo, idées, ce que l'assistant ne fait pas (design), puis « Envoyer à Uxlab ». Ajouter les nouveautés du 20/11 : idées suivantes, « Analyse mon site » (note sur 100, tout corriger), 3 styles au choix et barre de style, Mes versions, Partager mon site (aperçu Google, QR, WhatsApp), Mes visites, Messages, traduction en 8 langues. Échéance : avant le 21/11 à 9 h 30. Tutoiement, phrases courtes, aucun jargon.
 2. Rédiger le complément de la fiche des accès : « Demandes » (suivi des demandes à Uxlab) et « Consommation IA » (coût en euros).
 3. Aucun nom légal de société, aucune adresse technique longue ; signature « build by Uxlab.ai ».
 4. Écrire usine/rapports/flova-guide-demander.md.

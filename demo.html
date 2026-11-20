@@ -37,7 +37,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1
 .b a{color:#027eb5;font-weight:600;text-decoration:none;cursor:pointer}
 .b .ok{color:#008069;font-weight:600}
 .qr{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:92%;margin:-2px 0 4px}
-.dom{display:grid;gap:8px;margin-top:10px}.dom div{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f6f8f7;border-radius:10px;padding:8px 10px;font-weight:600}.dom div span:first-child{display:flex;gap:6px;align-items:baseline;min-width:0;overflow-wrap:anywhere;font-size:14.5px}.dom div.pris{opacity:.55;font-weight:500}.dom button{font:600 13.5px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.dom{display:grid;gap:8px;margin-top:10px}.dom div{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f6f8f7;border-radius:10px;padding:8px 10px;font-weight:600}.dom div span:first-child{display:flex;flex-wrap:nowrap;gap:6px;align-items:center;min-width:0;font-size:14.5px}.dom div span:first-child b{min-width:0;overflow-wrap:anywhere;font-weight:600}.dom div.pris{opacity:.55;font-weight:500}.dom button{font:600 13.5px Inter;background:var(--wa);color:#fff;border:0;border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .qr button{font:500 13.5px Inter;background:#fff;color:#008069;border:1px solid #c7e8df;border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
 .typing{align-self:flex-start;background:#fff;border-radius:9px;padding:10px 14px;display:flex;gap:4px}
 .typing i{width:7px;height:7px;border-radius:50%;background:#8696a0;animation:bl 1.2s infinite}
@@ -234,7 +234,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       } else if (j.type === 'hors_champ') {
         bubble(`${esc(j.resume || 'Ça, je ne peux pas le faire moi-même.')}\n\n<b>Dans la vraie version</b>, un bouton envoie ta demande à l’équipe Uxlab : elle la fabrique, la teste et te prévient quand c’est en ligne.`, 'in');
       } else if (j.type === 'domaine') {
-        const b = bubble('🌐 ' + esc(j.resume || '') + '<div class="dom">' + (j.domaines || []).map(x => x.libre === true ? `<div><span>✅ ${esc(x.d)}</span><button type="button" data-d="${esc(x.d)}">Je la prends</button></div>` : `<div class="pris"><span>${x.libre === false ? '✖' : '?'} ${esc(x.d)}</span><span>${x.libre === false ? 'déjà prise' : 'à vérifier'}</span></div>`).join('') + '</div>', 'in');
+        const b = bubble('🌐 ' + esc(j.resume || '') + '<div class="dom">' + (j.domaines || []).map(x => x.libre === true ? `<div><span>✅<b>${esc(x.d)}</b></span><button type="button" data-d="${esc(x.d)}">Je la prends</button></div>` : `<div class="pris"><span>${x.libre === false ? '✖' : '?'}<b>${esc(x.d)}</b></span><span>${x.libre === false ? 'déjà prise' : 'à vérifier'}</span></div>`).join('') + '</div>', 'in');
         b.querySelectorAll('[data-d]').forEach(btn => btn.addEventListener('click', async () => {
           const d = btn.dataset.d; b.querySelectorAll('[data-d]').forEach(x => x.disabled = true); btn.textContent = 'Réservation…';
           bubble('C’est noté pour <b>' + esc(d) + '</b> ✓\n<b>Dans la vraie version</b>, l’adresse est réservée à ton nom et branchée sur ton site en quelques minutes, cadenas de sécurité compris.', 'in');

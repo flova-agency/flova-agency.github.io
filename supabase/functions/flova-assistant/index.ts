@@ -207,9 +207,12 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   ]);
   await Promise.all(all.filter((x) => x.out).map((x) => log(x.out)));
   const ts = all.slice(0, tParts.length), ls = all.slice(tParts.length);
-  const a = { data: ts.every((x) => x.data?.t) ? { t: Object.assign({}, ...ts.map((x) => x.data.t)) } : null };
+  const tOf = (d: any) => (d && typeof d.t === "object" ? d.t : d && typeof d === "object" && !d.L ? d : null);
+  /* un morceau raté est redemandé une fois de plus, seul */
+  for (let i = 0; i < tParts.length; i++) if (!tOf(ts[i].data)) ts[i] = await callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[i] }), 4000);
+  const a = { data: { t: Object.assign({}, ...ts.map((x) => tOf(x.data) || {})) } };
   const bL: any = {};
-  for (const k of lkeys) { const arr: any[] = []; let ok = true; lParts.forEach(([kk, i, items], j) => { if (kk !== k) return; const v = ls[j].data?.L?.[k]; if (Array.isArray(v) && v.length === items.length) arr.splice(i, items.length, ...v); else ok = false; }); if (ok && arr.length === textL[k].length) bL[k] = arr; }
+  for (const k of lkeys) { const arr: any[] = []; let ok = true; lParts.forEach(([kk, i, items], j) => { if (kk !== k) return; const dd = ls[j].data, v = Array.isArray(dd?.L?.[k]) ? dd.L[k] : Array.isArray(dd?.[k]) ? dd[k] : Array.isArray(dd) ? dd : null; if (Array.isArray(v) && v.length === items.length) arr.splice(i, items.length, ...v); else ok = false; }); if (ok && arr.length === textL[k].length) bL[k] = arr; }
   const b = { data: { L: bL } };
   const [c, d] = await Promise.all([pc, pd]);
   for (const x of [c, d]) if (x.out) await log(x.out);

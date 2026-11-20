@@ -88,3 +88,12 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 - 20/11, nuit : étapes 17 à 21 faites et testées en direct ; 22 prête, en attente des deux clés ; fautes 22 à 38 consignées.
 
 - 19/11 : étapes 1 à 6 faites. 21 fautes consignées dans cerveau-apports (claude-ai-flova-20261119*.md).
+
+## Flova Ultra Premium — cahier des charges du fondateur (20/11/2026, à respecter à la lettre)
+1. **Toute la puissance de tous les modèles réunis** dans la discussion du client : Claude (forfait et Cursor Ultra avec Claude Opus 5.5), Gemini 4 Carbon et Argon, Codex (ChatGPT Business), Composer (Cursor), DeepSeek, et tout nouveau modèle dès sa sortie. Pas un seul moteur : le meilleur pour chaque étape, et plusieurs ensemble quand c'est mieux (l'un construit, un autre vérifie, un troisième tranche).
+2. **Niveau Claude + Cursor réunis, ou mieux** : rapidité, puissance, compréhension ; rivaliser avec les géants de l'IA personnalisée.
+3. **Créer une appli, un site ou n'importe quel service numérique** depuis la discussion WhatsApp, en abonnement ultra premium (99 € TTC/mois, ≈ 30 créations lourdes, retouches illimitées).
+4. **Zéro connaissance demandée au client, tout pré-connecté** : acheter et brancher un domaine, payer, mettre en ligne en un quart d'heure après l'inscription.
+5. **Tout ce qu'on sait déjà faire est offert en un clic** (appli iPhone via l'appli Flova + App Clips, traductions, domaines, statistiques…).
+6. **Chaque demande = une discussion avec sa mémoire** (en ligne depuis le 20/11).
+7. **Coût proche de zéro** : le routeur de quotas (usine.choisir_moteur) choisit le moteur selon la tâche, le prorata de quota restant avant réinitialisation, les pannes et le coût ; abonnements déjà payés d'abord (Composer, Cursor, Codex), payant ensuite.

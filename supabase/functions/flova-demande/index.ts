@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       const f = { nom: S(body.nom, 80), entreprise: S(body.entreprise, 120), email: S(body.email, 160).toLowerCase(), tel: S(body.tel, 40), message: String(body.message ?? "").slice(0, 2000).trim() };
       if (!f.nom || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email)) return json({ error: "Merci d'indiquer votre nom et une adresse e-mail valide." }, 400);
       if (body.website) return json({ ok: true });
-      const ipRaw = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+      const ipRaw = (req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-client-ip") || "").split(",")[0].trim();
       const ip = ipRaw ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ipRaw + new Date().toISOString().slice(0, 10))))).slice(0, 8).map(b => b.toString(16).padStart(2, "0")).join("") : "";
       const hAgo = new Date(Date.now() - 3600e3).toISOString();
       const [{ count: parIp }, { count: tous }] = await Promise.all([

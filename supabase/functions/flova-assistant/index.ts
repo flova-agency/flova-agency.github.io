@@ -187,13 +187,23 @@ async function translateSite(key: string, code: string, base: any, log: (o: any)
   const textL: any = {};
   for (const k of LISTS) if (Array.isArray(base.L?.[k])) textL[k] = base.L[k];
   const blk = Array.isArray(base.blocks) && base.blocks.length ? base.blocks.map((x: any) => ({ eyebrow: x.eyebrow, title: x.title, text: x.text, button: x.button, items: (x.items || []).map((i: any) => ({ q: i.q, a: i.a, name: i.name, role: i.role, text: i.text, t: i.t, d: i.d, h: i.h })) })) : null;
-  const [a, b, c, d] = await Promise.all([
-    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: base.t || {} })),
-    callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: textL }), 12000),
-    callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600),
-    blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null }),
+  /* découpage fin : chaque liste et chaque moitié des textes partent en parallèle */
+  const tk = Object.keys(base.t || {}), half = Math.ceil(tk.length / 2);
+  const tParts = [tk.slice(0, half), tk.slice(half)].map((ks) => Object.fromEntries(ks.map((k) => [k, base.t[k]])));
+  const lkeys = Object.keys(textL).filter((k) => textL[k].length);
+  const pc = callJson(key, TR_SYSTEM(lang), JSON.stringify({ seoTitle: base.links?.seoTitle || "", seoDesc: base.links?.seoDesc || "" }), 600);
+  const pd = blk ? callJson(key, TR_SYSTEM(lang), JSON.stringify({ blocks: blk }), 6000) : Promise.resolve({ data: null, out: null });
+  const [t1, t2, ...ls] = await Promise.all([
+    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[0] }), 6000),
+    callJson(key, TR_SYSTEM(lang), JSON.stringify({ t: tParts[1] }), 6000),
+    ...lkeys.map((k) => callJson(key, TR_SYSTEM(lang), JSON.stringify({ L: { [k]: textL[k] } }), 6000)),
   ]);
-  for (const x of [a, b, c, d]) if (x.out) await log(x.out);
+  for (const x of [t1, t2, ...ls]) if (x.out) await log(x.out);
+  const a = { data: t1.data?.t && t2.data?.t ? { t: { ...t1.data.t, ...t2.data.t } } : null };
+  const bL: any = {}; lkeys.forEach((k, i) => { const v = ls[i].data?.L?.[k]; if (Array.isArray(v)) bL[k] = v; });
+  const b = { data: { L: bL } };
+  const [c, d] = await Promise.all([pc, pd]);
+  for (const x of [c, d]) if (x.out) await log(x.out);
   if (!a.data?.t || !b.data?.L) return null;
   const tr: any = { t: {}, L: {}, links: {} };
   for (const k of Object.keys(base.t || {})) if (typeof a.data.t[k] === "string") tr.t[k] = a.data.t[k];

@@ -130,6 +130,17 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
 .shb{display:flex;flex-wrap:wrap;gap:6px}
 .shb a,.shb button{font:600 13px Inter;border:1px solid #d1d7db;background:#fff;color:#111b21;border-radius:999px;padding:7px 11px;cursor:pointer;text-decoration:none}
 .shb .wa{background:#25d366;color:#fff;border-color:#25d366}
+.sty{display:grid;gap:7px;margin-top:7px}
+.sty button.c{display:flex;gap:10px;align-items:center;text-align:left;width:100%;background:#fff;border:2px solid #e3e6e8;border-radius:12px;padding:8px 10px;cursor:pointer;font:inherit;color:#111b21}
+.sty button.c.on{border-color:#25d366;box-shadow:0 0 0 3px rgba(37,211,102,.18)}
+.sty .sw{flex:none;width:46px;height:46px;border-radius:10px;position:relative;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
+.sty .sw i{position:absolute;inset:auto 6px 6px auto;width:16px;height:16px;border-radius:50%}
+.sty .sw u{position:absolute;left:6px;top:7px;width:20px;height:4px;border-radius:3px;text-decoration:none}
+.sty .sw s{position:absolute;left:6px;top:15px;width:14px;height:3px;border-radius:3px;opacity:.6}
+.sty b{display:block;font-size:14px}.sty small{display:block;color:#667781;font-size:12.5px;line-height:1.3}
+.styk{display:flex;gap:6px;margin-top:8px}
+.styk button{flex:1;font:600 13.5px Inter;border-radius:10px;padding:9px;cursor:pointer;border:1px solid #d1d7db;background:#fff;color:#111b21}
+.styk .k{background:#25d366;border-color:#25d366;color:#fff}.styk button:disabled{opacity:.5}
 .fixall{display:block;width:100%;margin-top:9px;font:600 14px Inter;background:#25d366;color:#fff;border:0;border-radius:10px;padding:10px;cursor:pointer}
 </style>
 </head>
@@ -147,6 +158,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
       <button type="button" data-share>📲 Partager mon site</button>
       <button type="button">🌐 Trouve mon nom de domaine</button>
       <button type="button">💡 Donne-moi 3 idées pour mon site</button>
+      <button type="button">🎨 Propose-moi 3 styles pour mon site</button>
       <button type="button">✨ Rends le site plus luxe</button>
       <button type="button">❓ Ajoute une FAQ</button>
       <button type="button">📣 Ajoute un bandeau promo</button>
@@ -293,11 +305,13 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     bubble((first ? 'C’est bon, tu es connecté ✓\n' : 'Salut 👋 ') + 'Dis-moi ce que tu veux changer sur ton site, à l’écrit ou à la voix 🎤. Je le fais et c’est en ligne tout de suite.\nTu peux toujours revenir en arrière avec ↶ Annuler.', 'in');
   }
 
+  let apercuStyle = null;
   async function ask(instruction) {
     if (busy) return;
     if (login) return loginStep(instruction);
     if (!editor) return startLogin();
     if (!ready) { bubble('Une seconde, ton site se charge…', 'in'); return; }
+    if (apercuStyle) { apercuStyle = null; post({ type: 'apercu-site', site: cur }); }
     busy = true; bubble(esc(instruction), 'out');
     let send = instruction;
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; }
@@ -354,6 +368,21 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
         setTimeout(() => b.querySelectorAll('.bar i').forEach(i => i.style.width = i.dataset.w + '%'), 60);
         const fx = b.querySelector('.fixall'); if (fx) fx.addEventListener('click', () => { fx.disabled = true; fx.textContent = 'Je corrige tout…'; ask(j.tout); });
         if (j.choix && j.choix.length) bubble('Ou touche une correction à la fois :', 'in');
+      } else if (j.type === 'styles' && Array.isArray(j.styles)) {
+        const st = j.styles, base = cur;
+        const b = bubble('🎨 ' + esc(j.resume || 'Touche un style pour le voir sur ton site.') + '<div class="sty">' + st.map((x, i) => { const t = x.site.theme || {}; return `<button type="button" class="c" data-i="${i}"><span class="sw" style="background:${esc(t.bg || '#06070b')}"><u style="background:${esc(t.ink || '#fff')}"></u><s style="background:${esc(t.mute || '#999')}"></s><i style="background:${esc(t.accent || '#3b5bff')}"></i></span><span><b>${esc(x.nom)}</b><small>${esc(x.desc)}</small></span></button>`; }).join('') + '</div><div class="styk"><button type="button" class="k" disabled>Garder ce style</button><button type="button" class="r">Garder mon style actuel</button></div>', 'in');
+        let sel = -1; const keep = b.querySelector('.k'), rest = b.querySelector('.r');
+        const show = (i, fold = true) => { sel = i; apercuStyle = st[i].site; post({ type: 'apercu-site', site: st[i].site }); b.querySelectorAll('.c').forEach((c, k) => c.classList.toggle('on', k === i)); keep.disabled = false; keep.textContent = 'Garder « ' + st[i].nom + ' »'; if (fold && mob.matches) sheet(false); };
+        b.querySelectorAll('.c').forEach(c => c.addEventListener('click', () => show(+c.dataset.i)));
+        rest.addEventListener('click', () => { apercuStyle = null; post({ type: 'apercu-site', site: cur }); b.querySelectorAll('.c').forEach(c => c.classList.remove('on')); keep.disabled = true; keep.textContent = 'Garder ce style'; });
+        keep.addEventListener('click', async () => {
+          if (sel < 0 || busy) return; busy = true; keep.disabled = true; keep.textContent = 'Mise en ligne…';
+          const avant = cur, apres = st[sel].site; const bad = await publish(apres); busy = false; apercuStyle = null;
+          if (bad) { post({ type: 'apercu-site', site: avant }); keep.disabled = false; keep.textContent = 'Garder ce style'; return bubble('Je n’ai pas pu enregistrer ce style. Rien n’a bougé sur ton site.', 'in'); }
+          hist.push(avant); cur = apres; b.querySelectorAll('.c,.r').forEach(x => x.disabled = true); keep.textContent = '✓ Gardé';
+          const k = bubble(`<span class="ok">✓ C’est en ligne.</span>\nTon site a maintenant le style « ${esc(st[sel].nom)} ».\n<a data-undo>↶ Annuler</a>`, 'in'); k.querySelector('[data-undo]').addEventListener('click', undo);
+        });
+        setTimeout(() => show(0, false), 350);
       } else if (j.type === 'offre') {
         bubble('⭐ ' + esc(j.resume), 'in');
       } else if (j.type === 'conseil') {

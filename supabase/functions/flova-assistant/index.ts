@@ -58,6 +58,7 @@ Règles :
 9. Nouvelles sections : « ajoute une FAQ », « mets nos horaires et le plan », « ajoute ma vidéo TikTok <lien> », « ajoute un bandeau promo », « présente l'équipe », « ajoute une galerie », « ajoute un appel à l'action » = tu ajoutes un bloc dans "blocks" (donne la liste complète, en gardant les blocs existants) et tu le places au bon endroit dans "order". Pour une FAQ, écris 4 à 6 questions-réponses utiles à partir des faits du site. N'invente jamais d'avis clients, d'adresse, d'horaires, de téléphone, de membres d'équipe ou de lien vidéo : s'il manque ces infos, pose UNE question ("type": "question") avec 2 ou 3 réponses possibles dans "choix". Galerie : uniquement des images déjà présentes ou envoyées. « Supprime la FAQ » = retire le bloc de la liste.
 11. Après chaque modification faite ("type": "fait"), mets TOUJOURS dans "choix" 3 idées suivantes pour CE site, courtes (moins de 60 caractères), applicables tout de suite avec ce que tu sais déjà, dans l'esprit de ce qui vient d'être fait (mêmes interdits qu'au point 7). Si des langues existaient DÉJÀ avant cette demande et que le texte français a changé, la première idée est « Mets à jour les traductions » (jamais juste après avoir ajouté ou traduit une langue).
 12. Analyse ou note du site (« analyse mon site », « note mon site », « audit », « qu'est-ce qui ne va pas sur mon site ») : ne change rien, "type": "audit". Mets "note" (entier de 0 à 100, honnête et exigeant : un bon site vitrine fait 70 à 85), et "criteres" : exactement 5 objets {"nom", "note" (0 à 100), "pourquoi" (une phrase précise sur CE site)} pour : « Message clair en 5 secondes », « Appel à l'action », « Confiance et preuves », « Référencement Google », « Confort sur téléphone ». Mets dans "choix" 3 à 5 corrections prêtes à appliquer tout de suite (mêmes interdits qu'au point 7), et dans "tout" une seule demande qui les applique toutes d'un coup. "resume" : une phrase qui donne la note et le point fort.
+13. Plusieurs styles au choix (« propose-moi 3 styles », « montre-moi des ambiances », « je ne sais pas quel style choisir ») : ne change rien, "type": "styles", et mets dans "styles" exactement 3 propositions très différentes entre elles et adaptées à CE métier, chacune {"nom" (2 ou 3 mots), "desc" (une phrase courte qui dit l'effet produit sur le visiteur), "theme" {bg, card, ink, mute, accent, soft, font}}. Couleurs harmonieuses, élégantes, lisibles. "resume" : une phrase qui invite à toucher pour voir chaque style sur le site.
    Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
@@ -76,6 +77,7 @@ Réponds uniquement avec un objet JSON de cette forme :
  "note": "entier 0-100, seulement si type audit",
  "criteres": "seulement si type audit",
  "tout": "seulement si type audit",
+ "styles": "seulement si type styles",
  "domaine": "nom souhaité, seulement si type domaine",
  "choix": ["jusqu'à 3 demandes ou réponses prêtes à toucher, facultatif"]}
 Omets toute partie qui ne change pas. Si rien ne change, renvoie "changes": {}.`;
@@ -347,6 +349,12 @@ Deno.serve(async (req) => {
     const cleaned = clean(parsed.changes || {}, site);
     const usage: any = (cleaned as any).used || {};
     const locked = (usage.theme && !plan.theme) ? "les couleurs, les polices et les ambiances" : (usage.blocks && !plan.blocks) ? "les nouvelles sections" : (usage.langs > plan.langs) ? `plus de ${plan.langs} langue${plan.langs > 1 ? "s" : ""} en plus du français` : "";
+    if (parsed.type === "styles" && Array.isArray(parsed.styles)) {
+      if (!plan.theme) { await logUse(lastOut, false); return json({ count: 0, type: "offre", choix: [], resume: `Avec l'offre ${plan.label}, les couleurs, les polices et les ambiances ne sont pas incluses. Passe à l'offre Pro (9 € par mois) pour les essayer en un message.` }); }
+      const styles = parsed.styles.slice(0, 3).map((st: any) => { const c = clean({ theme: st?.theme || {} }, site); return { nom: String(st?.nom || "Style").slice(0, 30), desc: String(st?.desc || "").slice(0, 140), site: c.site }; }).filter((x: any) => x.site?.theme && Object.keys(x.site.theme).length);
+      await logUse(lastOut, false);
+      if (styles.length) return json({ count: 0, type: "styles", styles, choix: [], resume: String(parsed.resume || "Touche un style pour le voir sur ton site.").slice(0, 300) });
+    }
     if (locked) { await logUse(lastOut, false); return json({ count: 0, type: "offre", choix: [], resume: `Avec l'offre ${plan.label}, ${locked} ne sont pas inclus. Passe à l'offre ${planKey === "gratuit" ? "Pro (9 € par mois)" : "Commerce (19 € par mois)"} pour le faire en un message.` }); }
     const next = cleaned.site, touched = cleaned.langs;
     let count = cleaned.count;

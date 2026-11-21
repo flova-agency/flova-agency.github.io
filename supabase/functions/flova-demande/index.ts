@@ -9,6 +9,8 @@ const CORS = {
 };
 const SITE = "https://flovaagency.com";
 const OWNER = Deno.env.get("OWNER_EMAIL") || "elbazikarim@gmail.com";
+// Règle du fondateur (21/11, ordre ENTREES-FLOVA) : tout message venu de l'extérieur part aussi chez lui, en plus du destinataire.
+const FONDATEUR = "elbazikarim@gmail.com";
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -79,7 +81,12 @@ Deno.serve(async (req) => {
           mailOk = (await mail(to, `Nouveau message de ${f.nom}${f.entreprise ? " (" + f.entreprise + ")" : ""}`, page("Nouveau message reçu sur ton site", `<p>${lignes}</p>${f.message ? quote(f.message) : ""}<p>Réponds simplement à ce mail : ta réponse part directement chez ${esc(f.nom)}. Le message est aussi dans ton studio, bouton « Messages ».</p>`), f.email)).ok;
         }
       }
-      return json({ ok: true, id: row.id, mail: mailOk });
+      let copie = false;
+      {
+        const lignes = [["Nom", f.nom], ["Entreprise", f.entreprise], ["E-mail", f.email], ["Téléphone", f.tel]].filter(x => x[1]).map(([k, v]) => `<b>${esc(k)} :</b> ${esc(v)}`).join("<br>");
+        copie = (await mail(FONDATEUR, `${test ? "[TEST] " : ""}Flova · message reçu de ${f.nom}${f.entreprise ? " (" + f.entreprise + ")" : ""}`, page("Copie : message reçu sur le site Flova", `<p>${lignes}</p>${f.message ? quote(f.message) : ""}<p style="color:#4e5468">Copie automatique pour toi. Répondre à ce mail écrit directement à ${esc(f.nom)}.</p>`), f.email)).ok;
+      }
+      return json({ ok: true, id: row.id, mail: mailOk, copie });
     }
 
     /* 1. Furkan envoie une demande */

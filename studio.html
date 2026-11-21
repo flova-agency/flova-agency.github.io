@@ -280,8 +280,11 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   const waiters = {};
   const post = m => ifr.contentWindow.postMessage(m, location.origin);
   const call = (m, type, ms = 15000) => new Promise(ok => { waiters[type] = ok; post(m); setTimeout(() => { if (waiters[type] === ok) { delete waiters[type]; ok({ ok: false, error: 'délai dépassé' }); } }, ms); });
+  let VUE = null; // ce que le chat voit à droite : section à l'écran + élément pointé du doigt
   window.addEventListener('message', e => {
     if (e.origin !== location.origin || !e.data) return;
+    if (e.data.type === 'apercu-vue') VUE = { ...(VUE || {}), section: e.data.section, titre: e.data.titre };
+    if (e.data.type === 'apercu-pointe') { VUE = { ...(VUE || {}), pointe: { k: e.data.k, section: e.data.section, texte: e.data.texte, genre: e.data.genre } }; bubble('📍 Je vois l’élément que tu montres : « ' + esc(e.data.texte || e.data.genre) + ' ».\nDis-moi ce que je dois en faire.', 'in'); txt.focus(); }
     const m = e.data;
     if (m.type === 'apercu-charge') post({ type: 'apercu-get' });
     if (m.type === 'apercu-etat' && !ready) { cur = m.site; ready = true; }
@@ -386,7 +389,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; }
     txt.value = ''; txt.style.height = 'auto'; setBtn(); typing(true, /(anglais|anglaise|néerlandais|neerlandais|allemand|espagnol|italien|turc|arabe|portugais|tradu)/i.test(instruction) ? 'tr' : /(analyse|note|audit)/i.test(instruction) ? 'an' : '');
     try {
-      const { data: j, error } = await sb.functions.invoke('flova-assistant', { body: { instruction: send, site: cur, contexte } });
+      const { data: j, error } = await sb.functions.invoke('flova-assistant', { body: { instruction: send, site: cur, contexte, vue: VUE } }); if (VUE && VUE.pointe) { VUE.pointe = null; post({ type: 'apercu-depointer' }); }
       let err = null; if (error) { try { err = (await error.context.json()).error; } catch (x) {} err = err || 'L’assistant ne répond pas pour le moment. Réessaie dans un instant.'; }
       typing(false);
       if (err) { bubble(esc(err), 'in'); }

@@ -71,7 +71,7 @@ Règles :
 11. Après chaque modification faite ("type": "fait"), mets TOUJOURS dans "choix" 3 idées suivantes pour CE site, courtes (moins de 60 caractères), applicables tout de suite avec ce que tu sais déjà, dans l'esprit de ce qui vient d'être fait (mêmes interdits qu'au point 7). Si des langues existaient DÉJÀ avant cette demande et que le texte français a changé, la première idée est « Mets à jour les traductions » (jamais juste après avoir ajouté ou traduit une langue).
 12. Analyse ou note du site (« analyse mon site », « note mon site », « audit », « qu'est-ce qui ne va pas sur mon site ») : ne change rien, "type": "audit". Mets "note" (entier de 0 à 100, honnête et exigeant : un bon site vitrine fait 70 à 85), et "criteres" : exactement 5 objets {"nom", "note" (0 à 100), "pourquoi" (une phrase précise sur CE site)} pour : « Message clair en 5 secondes », « Appel à l'action », « Confiance et preuves », « Référencement Google », « Confort sur téléphone ». Mets dans "choix" 3 à 5 corrections prêtes à appliquer tout de suite (mêmes interdits qu'au point 7), et dans "tout" une seule demande qui les applique toutes d'un coup. "resume" : une phrase qui donne la note et le point fort.
 13. Plusieurs styles au choix (« propose-moi 3 styles », « montre-moi des ambiances », « je ne sais pas quel style choisir ») : ne change rien, "type": "styles", et mets dans "styles" exactement 3 propositions très différentes entre elles et adaptées à CE métier, chacune {"nom" (2 ou 3 mots), "desc" (une phrase courte qui dit l'effet produit sur le visiteur), "theme" {bg, card, ink, mute, accent, soft, font}}. Couleurs harmonieuses, élégantes, lisibles. "resume" : une phrase qui invite à toucher pour voir chaque style sur le site.
-   Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues) et que l'équipe Uxlab peut le fabriquer. N'invente aucun réglage ni menu.
+   Restent hors de ta portée : taille des éléments, mise en page fine, nouvelle page, paiement, réservation, nouvelle fonction, vidéo hébergée sur le site. Dans ce cas seulement, ne change rien et mets "type": "hors_champ" ; dans "resume", dis en une phrase ce que tu peux faire tout de suite à la place (textes, sections, couleurs, polices, ambiances, nouvelles sections, langues, boutons et libellés), et que la demande est notée pour être ajoutée. Avant de répondre hors_champ, vérifie que la demande ne se fait pas déjà avec les éléments du contenu (par exemple chaque offre a déjà son bouton « Recevoir une proposition », libellé plan_cta) : si oui, fais-le ou explique où c'est. N'invente aucun réglage ni menu.
 
 Réponds uniquement avec un objet JSON de cette forme :
 {"changes": {
@@ -316,7 +316,29 @@ async function checkDomains(raw: string) {
   return res.sort((a, b) => Number(b.libre === true) - Number(a.libre === true)).slice(0, 8);
 }
 
+// Journal de TOUTES les discussions (démo comprise) : demande + réponse, pour apprendre vite (demande 33 du fondateur).
+// Jamais le contenu du site, jamais d'adresse : seulement le texte échangé, le type de réponse et la session.
 Deno.serve(async (req) => {
+  if (req.method !== "POST") return traiter(req);
+  const copie = req.clone();
+  const res = await traiter(req);
+  try {
+    const b = await copie.json().catch(() => ({}));
+    const r = await res.clone().json().catch(() => ({}));
+    if (typeof b?.instruction === "string") {
+      await admin().from("flova_journal").insert({
+        demo: b.demo === true, session: typeof b.session === "string" ? b.session.slice(0, 40) : null,
+        demande: b.instruction.slice(0, 2000), statut: res.status, type: r?.type || (r?.error ? "erreur" : null),
+        reponse: String(r?.resume || r?.error || "").slice(0, 4000),
+        choix: Array.isArray(r?.choix) ? r.choix.slice(0, 6) : null,
+        changes: r?.changes && typeof r.changes === "object" ? Object.keys(r.changes).slice(0, 30) : null,
+      });
+    }
+  } catch (e) { console.error("journal", e); }
+  return res;
+});
+
+async function traiter(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "méthode non permise" }, 405);
   try {
@@ -330,6 +352,10 @@ Deno.serve(async (req) => {
     // mémoire de la discussion en cours (8 derniers échanges, courts) : seule cette demande, pas tout l'historique → rapide et peu coûteux
     const ctx = Array.isArray(body.contexte) ? body.contexte.slice(-8).filter((m: any) => m && (m.side === "in" || m.side === "out") && typeof m.texte === "string").map((m: any) => (m.side === "out" ? "Le client : " : "Toi : ") + m.texte.replace(/\s+/g, " ").slice(0, 500)).join("\n") : "";
     const demo = body.demo === true;
+    // Les yeux du chat : ce que le client voit à droite et ce qu'il a pointé du doigt (« ce bouton », « ici »).
+    const v = body.vue && typeof body.vue === "object" ? body.vue : null;
+    const net = (x: unknown, n: number) => String(x ?? "").replace(/\s+/g, " ").slice(0, n);
+    const vueTxt = v ? `Ce que le client a sous les yeux à droite : section « ${net(v.section, 40)} »${v.titre ? ` (titre « ${net(v.titre, 80)} »)` : ""}.` + (v.pointe ? ` Il a POINTÉ du doigt l'élément ${v.pointe.k ? `de clé « ${net(v.pointe.k, 40)} »` : `(${net(v.pointe.genre, 10)})`} dans la section « ${net(v.pointe.section, 40)} », texte « ${net(v.pointe.texte, 140)} » : « ça », « ce bouton », « ici » désignent cet élément.` : "") + "\n\n" : "";
     if (!demo) {
       const { data: ok } = await sb.rpc("flova_is_editor");
       if (!ok) return json({ error: "Cette adresse n'a pas l'accès à la modification du site." }, 403);
@@ -371,7 +397,7 @@ Deno.serve(async (req) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: `Contenu actuel (en français, langue principale) :\n${JSON.stringify({ ...site, langs: undefined })}\n\nLangues déjà traduites : ${Object.keys(site?.langs || {}).join(", ") || "aucune"}\n\n${ctx ? "Échanges précédents de cette discussion (même demande, pour le contexte) :\n" + ctx + "\n\n" : ""}Demande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
+          { role: "user", content: `Contenu actuel (en français, langue principale) :\n${JSON.stringify({ ...site, langs: undefined })}\n\nLangues déjà traduites : ${Object.keys(site?.langs || {}).join(", ") || "aucune"}\n\n${vueTxt}${ctx ? "Échanges précédents de cette discussion (même demande, pour le contexte) :\n" + ctx + "\n\n" : ""}Demande : ${instruction.trim()}` + (demo ? "\n\n(Démo : il n'y a pas de bouton « Changer l'image » ; pour ajouter un logo ou une photo, le propriétaire l'envoie dans la conversation avec l'icône appareil photo. Dis-le ainsi si besoin.)" : "") },
         ],
       });
     const logUse = (out: any, changed: boolean, tag = "") => {
@@ -453,4 +479,5 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error(e); return json({ error: "Petit souci technique. Réessaie dans un instant." }, 500);
   }
-});
+}
+

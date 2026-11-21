@@ -206,6 +206,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
   let rec = null;
   const KEY = 'sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB';
   const FN = 'https://nhukbglercraslszazan.supabase.co/functions/v1/flova-assistant';
+  const SID = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
   const MIC = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>';
   const SEND = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>';
   let cur = null, hist = [], busy = false, ready = false, pending = null;
@@ -241,8 +242,11 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     else $('st').textContent = 'en ligne';
   }
   const post = m => ifr.contentWindow.postMessage(m.site ? { ...m, site: withPhotos(m.site) } : m, location.origin);
+  let VUE = null; // ce que le chat voit à droite : section à l'écran + élément pointé du doigt
   window.addEventListener('message', e => {
     if (e.origin !== location.origin || !e.data) return;
+    if (e.data.type === 'apercu-vue') VUE = { ...(VUE || {}), section: e.data.section, titre: e.data.titre };
+    if (e.data.type === 'apercu-pointe') { VUE = { ...(VUE || {}), pointe: { k: e.data.k, section: e.data.section, texte: e.data.texte, genre: e.data.genre } }; bubble('📍 Je vois l’élément que tu montres : « ' + esc(e.data.texte || e.data.genre) + ' ».\nDis-moi ce que je dois en faire.', 'in'); txt.focus(); }
     if (e.data.type === 'apercu-pret') setTimeout(() => post({ type: 'apercu-get' }), 1200);
     if (e.data.type === 'apercu-etat' && !ready) { cur = e.data.site; ready = true; }
   });
@@ -261,7 +265,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
     let send = instruction;
     if (pending) { send += `\n(Photo envoyée par le propriétaire, adresse à utiliser : ${pending})`; pending = null; } txt.value = ''; txt.style.height = 'auto'; setBtn(); typing(true);
     try {
-      const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY }, body: JSON.stringify({ demo: true, instruction: send, site: cur }) });
+      const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY }, body: JSON.stringify({ demo: true, session: SID, instruction: send, site: cur, vue: VUE }) }); if (VUE && VUE.pointe) { VUE.pointe = null; post({ type: 'apercu-depointer' }); }
       const j = await r.json().catch(() => ({}));
       typing(false);
       if (!r.ok || j.error) { bubble(esc(j.error || 'Petit souci de connexion. Réessaie dans un instant.'), 'in'); }
@@ -280,7 +284,7 @@ iframe{flex:1;width:100%;border:0;background:#06070b}
           if (vue === 'avant') setTimeout(() => { if (vue === 'avant') { vue = 'apres'; post({ type: 'apercu-site', site: apres }); e.target.textContent = '👁 Voir avant'; } }, 4000);
         });
       } else if (j.type === 'hors_champ') {
-        bubble(`${esc(j.resume || 'Ça, je ne peux pas le faire moi-même.')}\n\n<b>Dans la vraie version</b>, un bouton envoie ta demande à l’équipe Uxlab : elle la fabrique, la teste et te prévient quand c’est en ligne.`, 'in');
+        bubble(`${esc(j.resume || 'Ça, je ne peux pas le faire moi-même.')}\n\n📝 <b>C’est noté.</b> Ta demande part à l’atelier Flova, qui apprend de chaque conversation : cette fonction sera ajoutée à l’assistant.`, 'in');
       } else if (j.type === 'domaine') {
         const b = bubble('🌐 ' + esc(j.resume || '') + '<div class="dom">' + (j.domaines || []).map(x => x.libre === true ? `<div><span>✅<b>${esc(x.d)}</b></span><button type="button" data-d="${esc(x.d)}">Je la prends</button></div>` : `<div class="pris"><span>${x.libre === false ? '✖' : '?'}<b>${esc(x.d)}</b></span><span>${x.libre === false ? 'déjà prise' : 'à vérifier'}</span></div>`).join('') + '</div>', 'in');
         b.querySelectorAll('[data-d]').forEach(btn => btn.addEventListener('click', async () => {

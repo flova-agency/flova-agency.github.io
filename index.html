@@ -212,7 +212,7 @@ body.ed .mqg .it{padding-top:48px;border-radius:14px}
 .plan li{padding-left:26px;position:relative}
 .plan li:before{content:"";position:absolute;left:2px;top:7px;width:12px;height:7px;border-left:2px solid var(--blue2);border-bottom:2px solid var(--blue2);transform:rotate(-45deg)}
 .plan .btn{margin-top:auto;width:100%}
-.plan:not(.rec) .btn{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3)}
+.plan:not(.rec) .btn{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink) 35%,transparent)}
 @media(max-width:900px){.plans{grid-template-columns:1fr}}
 .addons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
 .addons div{border:1px solid var(--line);border-radius:20px;padding:26px 30px}
@@ -1178,11 +1178,27 @@ $('copy').addEventListener('click', async e => { try { await navigator.clipboard
 const APERCU = /[?&]apercu\b/.test(location.search);
 if (APERCU) {
   const st = document.createElement('style');
-  st.textContent = '#edFab,#openEd,.edbar{display:none!important}.flash{animation:flash 1.6s ease-out 1}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(47,91,255,.9);background:rgba(47,91,255,.18)}100%{box-shadow:0 0 0 22px rgba(47,91,255,0);background:transparent}}';
+  st.textContent = '#edFab,#openEd,.edbar{display:none!important}.flash{animation:flash 1.6s ease-out 1}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(47,91,255,.9);background:rgba(47,91,255,.18)}100%{box-shadow:0 0 0 22px rgba(47,91,255,0);background:transparent}}#ghost{position:fixed;z-index:99999;left:0;top:0;width:26px;height:26px;pointer-events:none;opacity:0;transition:transform .9s cubic-bezier(.3,.7,.2,1),opacity .3s;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}#ghost.on{opacity:1}.pointe{outline:3px dashed #25d366!important;outline-offset:4px}';
   document.head.appendChild(st);
+  /* les yeux du chat : quelle section est à l'écran, et ce que le visiteur pointe du doigt */
+  const ghost = document.createElement('div'); ghost.id = 'ghost';
+  ghost.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 2l16 11-7 1.5L9.5 21z" fill="#25d366" stroke="#fff" stroke-width="1.5"/></svg>';
+  document.body.appendChild(ghost);
+  const vers = el => { const r = el.getBoundingClientRect(); ghost.classList.add('on'); ghost.style.transform = `translate(${Math.min(innerWidth - 40, r.left + Math.min(r.width / 2, 160))}px,${Math.max(8, Math.min(innerHeight - 40, r.top + Math.min(r.height / 2, 60)))}px)`; clearTimeout(ghost._t); ghost._t = setTimeout(() => ghost.classList.remove('on'), 4000); };
+  const nomSec = el => { const s = el && el.closest('[data-s]'); return s ? s.dataset.s : 'haut de page'; };
+  const vue = () => { let best = null, bv = 0; document.querySelectorAll('[data-s]').forEach(x => { const r = x.getBoundingClientRect(); const v = Math.max(0, Math.min(innerHeight, r.bottom) - Math.max(0, r.top)); if (v > bv) { bv = v; best = x; } }); const h = best && best.querySelector('h1,h2'); try { parent.postMessage({ type: 'apercu-vue', section: best ? best.dataset.s : 'haut de page', titre: h ? h.textContent.trim().slice(0, 80) : '' }, location.origin); } catch (x) {} };
+  addEventListener('scroll', () => { clearTimeout(vue._t); vue._t = setTimeout(vue, 350); }, { passive: true });
+  document.addEventListener('click', ev => {
+    const el = ev.target.closest('[data-k],a,button,img,h1,h2,h3,li,p,[data-s]'); if (!el) return;
+    ev.preventDefault(); ev.stopPropagation();
+    document.querySelectorAll('.pointe').forEach(x => x.classList.remove('pointe')); el.classList.add('pointe');
+    const k = el.closest('[data-k]')?.dataset.k || el.querySelector?.('[data-k]')?.dataset.k || '';
+    try { parent.postMessage({ type: 'apercu-pointe', k, section: nomSec(el), texte: (el.textContent || el.alt || '').replace(/\s+/g, ' ').trim().slice(0, 140), genre: el.tagName.toLowerCase() }, location.origin); } catch (x) {}
+  }, true);
   window.addEventListener('message', e => {
     if (e.origin !== location.origin || !e.data) return;
     const m = e.data;
+    if (m.type === 'apercu-depointer') { document.querySelectorAll('.pointe').forEach(x => x.classList.remove('pointe')); return; }
     if (m.type === 'apercu-get') { e.source.postMessage({ type: 'apercu-etat', site: siteNow() }, location.origin); return; }
     if (m.type === 'apercu-lang') { LANG = m.lang || 'fr'; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (m.type === 'apercu-session') { sb && sb.auth.getSession().then(({ data }) => { user = data.session?.user || null; }); return; }
@@ -1213,7 +1229,7 @@ if (APERCU) {
     if (!el) { const SS = secsAll(); for (const k of SS) if (!!after.hide[k] !== !!before.hide[k]) { el = document.querySelector(`[data-s="${k}"]`); if (after.hide[k]) { const n = SS.indexOf(k); el = document.querySelector(`[data-s="${SS[n + 1] || SS[n - 1]}"]`); } break; } }
     if (!el && JSON.stringify(after.blocks) !== JSON.stringify(before.blocks)) { const nb = (after.blocks || []).find(b => !(before.blocks || []).some(o => JSON.stringify(o) === JSON.stringify(b))); if (nb) el = nb.type === 'bandeau' ? $('annbar') : document.querySelector(`[data-s="x_${nb.id}"]`); }
     if (!el && JSON.stringify(after.theme) !== JSON.stringify(before.theme)) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    if (el) { el.scrollIntoView({ behavior: 'smooth', block: el.matches('section,.annbar') || el.offsetHeight > innerHeight * .6 ? 'start' : 'center' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: el.matches('section,.annbar') || el.offsetHeight > innerHeight * .6 ? 'start' : 'center' }); setTimeout(() => { vers(el); setTimeout(() => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }, 700); }, 600); }
   });
   window.addEventListener('load', () => { try { parent.postMessage({ type: 'apercu-pret' }, location.origin); } catch (x) {} });
 }

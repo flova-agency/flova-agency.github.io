@@ -28,7 +28,7 @@ Règle : chaque demande de Karim est inscrite ici au moment où elle est faite, 
 | 22 | Usine dépendante du PC : parade sous 24 h | FAIT | 21/11 : 3 serveurs battent seuls toutes les 5 min, veille dans la base appelle Karim si l'un se tait > 10 min ; contrôle vert vérifié à 15 h ; reste au PC : pouls et conseil-reel (port = clé root + dépense, à décider) |
 | 23 | Appli Apple pour les clients en un clic ; parade à la règle Apple 4.2.6 | EN COURS | Bulle « Mon appli » en ligne ; appli Flova + App Clips : ordre déposé ; compte Apple commun en attendant une société Uxlab |
 | 24 | Brancher Gemini 4 Carbon ; chercher les meilleurs modèles de raisonnement | EN COURS | Ordre envoyé au pilote |
-| 25 | Suivi intelligent des quotas avec bascule (prorata avant réinitialisation, alternatives, autres raisons) | FAIT (règles) / À FAIRE (branchement 21/11 19 h 15) | usine.choisir_moteur |
+| 25 | Suivi intelligent des quotas avec bascule (prorata avant réinitialisation, alternatives, autres raisons) | FAIT (règles + assistant Flova) / EN COURS (usine, par le pilote) | Claude remis à 2 % (réinit 28/11) ; assistant Flova choisit et note sa consommation (essai réel 19 h 19) ; ordre usine envoyé au pilote, vérification 21 h 30 |
 | 26 | Négocier des tarifs avec les fournisseurs | EN COURS | Crédits ChatGPT Business et Google à réclamer |
 | 27 | Cursor Ultra et Composer à exploiter | EN COURS | Ajoutés au routeur (en pause jusqu'au branchement) ; contrôle des abonnements non exploités |
 | 28 | Relire tout le fil avant le compactage, inscrire toutes les demandes ; règle immuable pour toutes les discussions et tous les modèles, en bon père de famille | FAIT (ce registre) | Règle inscrite dans le cerveau et les règles immuables |

@@ -17,6 +17,18 @@ function admin() {
   if (!key) { try { key = Object.values(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"))[0] as string; } catch { /* rien */ } }
   return createClient(Deno.env.get("SUPABASE_URL")!, key, { auth: { persistSession: false } });
 }
+// Routeur de quotas commun à l'usine (base vos-v0) : choisit le moteur avant l'appel et note la consommation après.
+// Clé publiable (non secrète) ; une panne du routeur ne bloque jamais l'assistant.
+const ROUTEUR = "https://blaehmatdmobhwlhqfjo.supabase.co/rest/v1/rpc/";
+const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
+const MOTEURS_FLOVA = ["deepseek-flash"]; // moteurs dont Flova a la clé ; à élargir quand d'autres clés seront branchées
+async function routeur(fn: string, corps: unknown): Promise<any> {
+  try {
+    const r = await fetch(ROUTEUR + fn, { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify(corps), signal: AbortSignal.timeout(1500) });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
 async function setting(db: any, k: string, d: number) {
   const { data } = await db.from("flova_settings").select("value").eq("key", k).maybeSingle();
   const v = Number(data?.value); return Number.isFinite(v) ? v : d;
@@ -366,6 +378,7 @@ Deno.serve(async (req) => {
       const u = out?.usage || {};
       const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
       const cost = ((hit * PRICE.hit) + (Math.max(0, pin - hit) * PRICE.miss) + (pout * PRICE.out)) / 1e6;
+      routeur("usine_noter", { p_moteur: "deepseek-flash", p_ajout: cost, p_erreur: false });
       return db.from("flova_ai_usage").insert({ author: demo ? "démo" : (who?.user?.email || null), model: out?.model || null, prompt_tokens: pin, completion_tokens: pout, cache_hit_tokens: hit, cost_usd: cost, changed, instruction: (tag + instruction.trim()).slice(0, 300) });
     };
     // Deux essais : une réponse coupée ou mal formée est redemandée une fois, sans jamais montrer d'erreur technique.
@@ -379,9 +392,13 @@ Deno.serve(async (req) => {
         parsed = { changes: { langs: { [code]: "traduire" } }, type: "fait", resume: `J'ai ajouté ${nom} : le site est traduit en entier et tes visiteurs choisissent leur langue en haut de page. Le français reste la version principale.`, choix: [code === "nl" ? "Ajoute aussi l'anglais" : "Ajoute aussi le néerlandais", "Donne-moi 3 idées pour mon site", "Analyse mon site et note-le sur 100"] };
       }
     }
+    if (!parsed) {
+      const choix = await routeur("usine_choisir", { p_classe: "construction", p_permis: MOTEURS_FLOVA });
+      if (Array.isArray(choix) && choix[0] && !choix[0].moteur) { console.error("routeur :", choix[0].raison); return json({ error: "L'assistant est très demandé en ce moment. Réessaie dans quelques minutes." }, 503); }
+    }
     for (let essai = 0; essai < 2 && !parsed; essai++) {
       const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: payload });
-      if (!r.ok) { if (essai === 1) return json({ error: "L'assistant ne répond pas pour le moment. Réessaie dans un instant." }, 502); continue; }
+      if (!r.ok) { routeur("usine_noter", { p_moteur: "deepseek-flash", p_ajout: 0, p_erreur: true }); if (essai === 1) return json({ error: "L'assistant ne répond pas pour le moment. Réessaie dans un instant." }, 502); continue; }
       const out = await r.json().catch(() => null);
       lastOut = out;
       const text: string = out?.choices?.[0]?.message?.content || "";

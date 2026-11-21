@@ -86,6 +86,7 @@ Réponds uniquement avec un objet JSON de cette forme :
  },
  "resume": "une ou deux phrases courtes, en tutoyant, qui disent ce que tu as fait",
  "type": "fait" | "question" | "conseil" | "hors_champ" | "domaine" | "audit",
+ (Une QUESTION sur le site — « quel est le titre ? », « combien de clients ? », « sans rien changer : … » — ne change rien : "changes" vide, "type": "question", et "resume" donne la réponse exacte tirée du contenu, citée entre « ».)
  "note": "entier 0-100, seulement si type audit",
  "criteres": "seulement si type audit",
  "tout": "seulement si type audit",
@@ -469,6 +470,8 @@ async function traiter(req: Request): Promise<Response> {
     await logUse(lastOut, count > 0);
     if (failed.length && !count) return json({ error: "La traduction n'a pas abouti. Réessaie dans un instant." }, 502);
     const type = count ? "fait" : (["question", "hors_champ", "conseil", "audit"].includes(parsed.type) ? parsed.type : "question");
+    const estQuestion = /\?\s*$|^\s*(quel|quelle|quels|quelles|combien|est-ce|c'est quoi|qu'est|où|ou est|sans rien changer)/i.test(instruction.normalize("NFC"));
+    if (!count && parsed.type === "fait" && estQuestion && parsed.resume) parsed.type = "question";
     if (!count && parsed.type === "fait") parsed.resume = "Je n'ai rien trouvé à changer avec cette demande. Dis-moi plus précisément quoi modifier, ou touche une idée.";
     const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, type === "audit" ? 5 : 3).map((c: string) => c.trim().slice(0, 90));
     if (type === "audit") {

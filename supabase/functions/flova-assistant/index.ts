@@ -333,6 +333,8 @@ Deno.serve(async (req) => {
         choix: Array.isArray(r?.choix) ? r.choix.slice(0, 6) : null,
         changes: r?.changes && typeof r.changes === "object" ? Object.keys(r.changes).slice(0, 30) : null,
       });
+      // copie vers l'usine : chaque demande non servie devient une amélioration à faire (cerveau, usine, écosystème)
+      await routeur("flova_apprendre", { p: { demo: b.demo === true, session: b.session || null, demande: b.instruction.slice(0, 2000), type: r?.type || (r?.error ? "erreur" : null), reponse: String(r?.resume || r?.error || "").slice(0, 4000), statut: res.status } });
     }
   } catch (e) { console.error("journal", e); }
   return res;

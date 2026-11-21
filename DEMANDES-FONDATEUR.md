@@ -25,7 +25,7 @@ Règle : chaque demande de Karim est inscrite ici au moment où elle est faite, 
 | 19 | Ultra Premium : toute la puissance de tous les modèles réunis, niveau Claude + Cursor ou mieux, créer appli/site/service dans la discussion | EN COURS | Cahier des charges dans PLAN-FLOVA.md ; équipe de moteurs (usine.equipe_ultra) ; RESTE : construire la création d'applis dans la discussion |
 | 20 | Faire moi-même ce que je sais faire (Stripe) ; consigner les fautes ; parade en code | FAIT | Garde-fou + annuaire des fautes déposés ; à brancher par le pilote |
 | 21 | Relancer l'usine via « mon pilote fable » en le faisant moi-même | FAIT | Ordre envoyé et exécuté sur le PC |
-| 22 | Usine dépendante du PC : parade sous 24 h | À FAIRE (21/11) | Rappel programmé 10 h |
+| 22 | Usine dépendante du PC : parade sous 24 h | FAIT | 21/11 : 3 serveurs battent seuls toutes les 5 min, veille dans la base appelle Karim si l'un se tait > 10 min ; contrôle vert vérifié à 15 h ; reste au PC : pouls et conseil-reel (port = clé root + dépense, à décider) |
 | 23 | Appli Apple pour les clients en un clic ; parade à la règle Apple 4.2.6 | EN COURS | Bulle « Mon appli » en ligne ; appli Flova + App Clips : ordre déposé ; compte Apple commun en attendant une société Uxlab |
 | 24 | Brancher Gemini 4 Carbon ; chercher les meilleurs modèles de raisonnement | EN COURS | Ordre envoyé au pilote |
 | 25 | Suivi intelligent des quotas avec bascule (prorata avant réinitialisation, alternatives, autres raisons) | FAIT (règles) / À FAIRE (branchement 21/11 19 h 15) | usine.choisir_moteur |

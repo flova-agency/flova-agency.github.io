@@ -422,8 +422,8 @@ async function traiter(req: Request): Promise<Response> {
       }
     }
     if (!parsed) {
-      const choix = await routeur("usine_choisir", { p_classe: "construction", p_permis: MOTEURS_FLOVA });
-      if (Array.isArray(choix) && choix[0] && !choix[0].moteur) { console.error("routeur :", choix[0].raison); return json({ error: "L'assistant est très demandé en ce moment. Réessaie dans quelques minutes." }, 503); }
+      const choix = await routeur("usine_choisir", { p_classe: "client", p_permis: MOTEURS_FLOVA });
+      if (Array.isArray(choix) && choix[0] && !choix[0].moteur && /quota épuisé/.test(choix[0].raison || "")) { console.error("routeur :", choix[0].raison); return json({ error: "L'assistant est très demandé en ce moment. Réessaie dans quelques minutes." }, 503); }
     }
     for (let essai = 0; essai < 2 && !parsed; essai++) {
       const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: payload });

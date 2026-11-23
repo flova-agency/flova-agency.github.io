@@ -51,17 +51,23 @@ async function limite(ip: string, action: keyof typeof LIM) {
 }
 
 /* ---------- moteurs ---------- */
-const PRICE = { hit: 0.006, miss: 0.3, out: 1.2 }; // $ par million de jetons, estimation prudente (même base que flova-assistant)
+// $ par million de jetons, tarif plein (heures de pointe) relevé sur api-docs.deepseek.com le 24/11/2026 : estimation prudente.
+const PRIX: Record<string, { hit: number; miss: number; out: number }> = {
+  "deepseek-flash": { hit: 0.006, miss: 0.3, out: 1.2 },
+  "deepseek-v4-pro": { hit: 0.044, miss: 1.32, out: 3.96 },
+};
 const ROUTEUR = "https://blaehmatdmobhwlhqfjo.supabase.co/rest/v1/rpc/";
 const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
-function noter(cout: number, erreur = false) {
-  fetch(ROUTEUR + "usine_noter", { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify({ p_moteur: "deepseek-flash", p_ajout: cout, p_erreur: erreur }), signal: AbortSignal.timeout(1500) }).catch(() => {});
+function noter(cout: number, erreur = false, moteur = "deepseek-flash") {
+  fetch(ROUTEUR + "usine_noter", { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify({ p_moteur: moteur, p_ajout: cout, p_erreur: erreur }), signal: AbortSignal.timeout(1500) }).catch(() => {});
 }
 type Rep = { texte: string; cout: number; modele: string; fini: boolean };
 async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number; delaiMs?: number; debut?: string; progres?: (t: string) => Promise<unknown> } = {}): Promise<Rep> {
   const key = Deno.env.get("DEEPSEEK_API_KEY");
   if (!key) throw new Error("cle");
-  const modele = (o.fort && Deno.env.get("INEED_MODEL_FORT")) || Deno.env.get("FLOVA_MODEL") || "deepseek-flash";
+  // Moteur rapide pour comprendre et planifier, moteur fort pour construire, contrôler et retoucher ; mode réflexion coupé (10 fois plus rapide, mesuré).
+  const modele = o.fort ? (Deno.env.get("INEED_MODEL_FORT") || "deepseek-v4-pro") : (Deno.env.get("FLOVA_MODEL") || "deepseek-flash");
+  const PRICE = PRIX[modele] || PRIX["deepseek-v4-pro"];
   // Réponse en flux continu : la connexion ne reste jamais muette pendant une longue fabrication.
   for (let essai = 0; essai < 2; essai++) {
     try {
@@ -71,11 +77,11 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
       const ctl = new AbortController();
       const r = await fetch(o.debut ? "https://api.deepseek.com/beta/chat/completions" : "https://api.deepseek.com/chat/completions", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, signal: ctl.signal,
-        body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, stream: true, stream_options: { include_usage: true },
+        body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, stream: true, stream_options: { include_usage: true }, thinking: { type: "disabled" },
           ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}), messages: msgs }),
       });
       const limiteT = o.delaiMs ? Date.now() + o.delaiMs : 0;
-      if (!r.ok || !r.body) { console.error("deepseek", r.status, (await r.text().catch(() => "")).slice(0, 300)); noter(0, true); continue; }
+      if (!r.ok || !r.body) { console.error("deepseek", r.status, (await r.text().catch(() => "")).slice(0, 300)); noter(0, true, modele); continue; }
       const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "", texte = "", u: any = {}, nom = modele, fini = false, coupe = false, vu = Date.now();
       for (;;) {
@@ -99,7 +105,7 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
       const pin = Number(u.prompt_tokens || Math.round((system.length + user.length + (o.debut || "").length) / 3.5));
       const hit = Number(u.prompt_cache_hit_tokens || 0), pout = Number(u.completion_tokens || Math.round(texte.length / 3.5));
       const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
-      noter(cout);
+      noter(cout, false, modele);
       if (texte || coupe) return { texte, cout, modele: nom, fini: fini && !coupe };
     } catch (e) { console.error("deepseek coupé :", (e as Error).message); noter(0, true); }
   }
@@ -115,7 +121,7 @@ async function relecteur(system: string, user: string): Promise<Rep> {
       if (r.ok) { const o = await r.json(); const t = o?.choices?.[0]?.message?.content || ""; if (t) return { texte: t, cout: 0, modele: m, fini: true }; }
     } catch { /* repli sur DeepSeek */ }
   }
-  return ia(system, user, { max: 4000, jsonMode: true, temp: 0.1, delaiMs: 130000 });
+  return ia(system, user, { max: 6000, jsonMode: true, temp: 0.1, delaiMs: 130000, fort: true });
 }
 const objet = (t: string) => { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
 function extraireHtml(t: string) {
@@ -241,7 +247,7 @@ async function etape(id: string, suite: () => void) {
 async function retouche(id: string, consigne: string) {
   const [c] = await sql`select html, plan from ineed_chantiers where id=${id}`;
   try {
-    const r = await ia(SYS_RETOUCHER, `Plan d'origine : ${JSON.stringify(c.plan)}\n\nDemande du client : ${consigne}\n\nFichier actuel :\n${c.html}`, { max: 6000, jsonMode: true, temp: 0.2, delaiMs: 130000 });
+    const r = await ia(SYS_RETOUCHER, `Plan d'origine : ${JSON.stringify(c.plan)}\n\nDemande du client : ${consigne}\n\nFichier actuel :\n${c.html}`, { max: 8000, jsonMode: true, temp: 0.2, delaiMs: 130000, fort: true });
     const v = objet(r.texte) || {};
     let html = c.html, n = 0;
     if (v.mode === "complet" && typeof v.html === "string" && /<html/i.test(v.html)) { html = extraireHtml(v.html); n = 1; }
@@ -306,18 +312,6 @@ Deno.serve(async (req) => {
       const r = await fetch("https://api.deepseek.com/models", { headers: { Authorization: `Bearer ${Deno.env.get("DEEPSEEK_API_KEY")}` } });
       const j = await r.json().catch(() => ({}));
       return json({ ok: r.ok, modeles: (j.data || []).map((m: any) => m.id), defaut: Deno.env.get("FLOVA_MODEL") || "deepseek-flash", fort: Deno.env.get("INEED_MODEL_FORT") || null, nvidia: !!Deno.env.get("NVIDIA_API_KEY") });
-    }
-    if (b.action === "essai_moteur") { // mesure de vitesse d'un moteur (réservé aux tests de l'atelier)
-      const t0 = Date.now(); let premier = 0, raison = 0, contenu = 0, fin = "", statut = 0, err = "";
-      try {
-        const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("DEEPSEEK_API_KEY")}` },
-          body: JSON.stringify({ model: String(b.modele || "deepseek-flash"), max_tokens: 1500, stream: true, ...(b.extra || {}), messages: [{ role: "user", content: "Écris une page HTML d'une liste de tâches, complète, environ 80 lignes." }] }), signal: AbortSignal.timeout(60000) });
-        statut = r.status;
-        if (!r.ok) err = (await r.text()).slice(0, 300);
-        else { const rd = r.body!.pipeThrough(new TextDecoderStream()).getReader(); let buf = "";
-          for (;;) { const { value, done } = await rd.read(); if (done) break; buf += value; let i; while ((i = buf.indexOf("\n")) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!l.startsWith("data:") || l.includes("[DONE]")) continue; try { const d = JSON.parse(l.slice(5)).choices?.[0]; if (!d) continue; if (!premier && (d.delta?.content || d.delta?.reasoning_content)) premier = Date.now() - t0; raison += (d.delta?.reasoning_content || "").length; contenu += (d.delta?.content || "").length; if (d.finish_reason) fin = d.finish_reason; } catch { /* */ } } } }
-      } catch (e) { err = (e as Error).message; }
-      return json({ statut, err, ms: Date.now() - t0, premier_ms: premier, car_raisonnement: raison, car_contenu: contenu, fin });
     }
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));

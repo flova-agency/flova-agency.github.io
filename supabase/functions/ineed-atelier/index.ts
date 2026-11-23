@@ -129,7 +129,7 @@ Réponds en JSON : {"titre": "nom court du projet", "resume": "ce que tu as comp
 
 const SYS_PLAN = `Tu es l'architecte de l'atelier ineed.shopping. À partir de l'ordre du client et de ses réponses, écris le plan précis d'un produit web fini, livrable en un seul fichier HTML (HTML + CSS + JavaScript sans framework, données gardées dans localStorage).
 Le produit doit être réellement utilisable, pas une maquette : chaque bouton fait quelque chose, les données saisies restent après rechargement, il y a des données d'exemple réalistes pour que ce ne soit pas vide.
-Réponds en JSON : {"nom": "…", "accroche": "…", "ecrans": [{"nom":"…","contenu":"…"}], "fonctions": ["…"], "donnees": ["…"], "style": {"ambiance":"…","couleurs":["#…","#…","#…"],"police":"une police Google Fonts"}, "criteres": ["critère vérifiable de réussite", "…"]}
+Réponds en JSON : {"nom": "…", "accroche": "…", "ecrans": [{"nom":"…","contenu":"une phrase"}], "fonctions": ["…"], "donnees": ["…"], "style": {"ambiance":"…","couleurs":["#…","#…","#…"],"police":"une police Google Fonts"}, "criteres": ["critère vérifiable de réussite", "…"]}
 6 à 12 fonctions, 5 à 10 critères vérifiables. Langue du produit : celle de l'ordre du client.`;
 
 const SYS_CONSTRUIRE = `Tu es le développeur principal de l'atelier ineed.shopping, au niveau des meilleurs produits du marché. Tu reçois un plan et tu livres le produit fini.
@@ -165,9 +165,10 @@ async function etape(id: string, suite: () => void) {
   try {
     const contexte = `Ordre du client : ${c.ordre}\n\nCe que le chef de projet a compris : ${JSON.stringify(c.cadrage)}\n\nRéponses du client aux questions : ${JSON.stringify(c.reponses)}`;
     if (!c.plan) {
-      const r = await ia(SYS_PLAN, contexte, { max: 3000, jsonMode: true });
-      const plan = objet(r.texte);
-      if (!plan) throw new Error("plan illisible");
+      let r = await ia(SYS_PLAN, contexte, { max: 8000, jsonMode: true });
+      let plan = objet(r.texte);
+      if (!plan) { console.error("plan illisible :", r.texte.slice(0, 300), "…", r.texte.slice(-200)); r = await ia(SYS_PLAN, contexte + "\n\nSois bref : phrases courtes, JSON valide uniquement.", { max: 8000, jsonMode: true, temp: 0.1 }); plan = objet(r.texte); }
+      if (!plan) throw new Error("plan illisible : " + r.texte.slice(-120));
       await sql`update ineed_chantiers set plan=${sql.json(plan)} where id=${id}`;
       await journal(id, "construction", `Plan prêt : ${plan.ecrans?.length || 0} écrans, ${plan.fonctions?.length || 0} fonctions. Le développeur construit.`, r.cout);
       return suite();

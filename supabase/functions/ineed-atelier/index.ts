@@ -1,0 +1,295 @@
+// Atelier ineed.shopping : l'utilisateur donne un ordre, l'atelier pose 2 à 4 questions à choix,
+// puis fabrique seul un produit fini (appli web, site, outil, jeu…) et le livre avec un lien.
+// Chaîne : cadrage → plan → construction → contrôle automatique (syntaxe + relecture par un 2e passage) → livraison.
+// Secrets lus dans Supabase (aucun ici) : DEEPSEEK_API_KEY ; facultatifs : INEED_MODEL_FORT, NVIDIA_API_KEY + NVIDIA_MODEL.
+// Base : SUPABASE_DB_URL (fourni par Supabase). Les tables sont créées au premier appel, sans accès public (RLS sans règle).
+import postgres from "npm:postgres@3.4.5";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+
+const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 3, idle_timeout: 20 });
+let pret: Promise<unknown> | null = null;
+function schema() {
+  pret ??= sql.unsafe(`
+    create table if not exists public.ineed_chantiers(
+      id uuid primary key default gen_random_uuid(), cree_le timestamptz not null default now(), maj_le timestamptz not null default now(),
+      ip_h text, ordre text not null, cadrage jsonb, reponses jsonb, plan jsonb, html text, etape text not null default 'plan',
+      journal jsonb not null default '[]'::jsonb, versions jsonb not null default '[]'::jsonb, erreur text, cout_usd numeric not null default 0, tours int not null default 0, note int);
+    alter table public.ineed_chantiers add column if not exists tours int not null default 0;
+    alter table public.ineed_chantiers add column if not exists note int;
+    create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
+    create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
+    alter table public.ineed_chantiers enable row level security;
+    alter table public.ineed_appels enable row level security;
+    revoke all on public.ineed_chantiers, public.ineed_appels from anon, authenticated;`).catch((e) => { pret = null; throw e; });
+  return pret;
+}
+
+// Limites (protègent la dépense) : par visiteur et par jour, et un plafond global par jour.
+const LIM = { cadrer: 60, construire: 12, retoucher: 40, global_construire: 300 };
+async function ipHash(req: Request) {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "inconnu";
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("ineed:" + ip));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("").slice(0, 24);
+}
+async function limite(ip: string, action: keyof typeof LIM) {
+  const [{ n }] = await sql`select count(*)::int n from ineed_appels where ip_h=${ip} and action=${action} and le > now() - interval '1 day'`;
+  if (n >= LIM[action]) return true;
+  if (action === "construire") {
+    const [{ g }] = await sql`select count(*)::int g from ineed_appels where action='construire' and le > now() - interval '1 day'`;
+    if (g >= LIM.global_construire) return true;
+  }
+  await sql`insert into ineed_appels(ip_h, action) values (${ip}, ${action})`;
+  return false;
+}
+
+/* ---------- moteurs ---------- */
+const PRICE = { hit: 0.006, miss: 0.3, out: 1.2 }; // $ par million de jetons, estimation prudente (même base que flova-assistant)
+const ROUTEUR = "https://blaehmatdmobhwlhqfjo.supabase.co/rest/v1/rpc/";
+const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
+function noter(cout: number, erreur = false) {
+  fetch(ROUTEUR + "usine_noter", { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify({ p_moteur: "deepseek-flash", p_ajout: cout, p_erreur: erreur }), signal: AbortSignal.timeout(1500) }).catch(() => {});
+}
+type Rep = { texte: string; cout: number; modele: string };
+async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number } = {}): Promise<Rep> {
+  const key = Deno.env.get("DEEPSEEK_API_KEY");
+  if (!key) throw new Error("cle");
+  const modele = (o.fort && Deno.env.get("INEED_MODEL_FORT")) || Deno.env.get("FLOVA_MODEL") || "deepseek-flash";
+  for (let essai = 0; essai < 2; essai++) {
+    const r = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}),
+        messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+    }).catch(() => null);
+    if (!r || !r.ok) { noter(0, true); continue; }
+    const out = await r.json().catch(() => null);
+    const u = out?.usage || {};
+    const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
+    const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
+    noter(cout);
+    const texte = out?.choices?.[0]?.message?.content || "";
+    if (texte) return { texte, cout, modele: out?.model || modele };
+  }
+  throw new Error("moteur");
+}
+// Relecteur indépendant : un autre moteur si une clé NVIDIA est branchée, sinon DeepSeek avec un autre rôle.
+async function relecteur(system: string, user: string): Promise<Rep> {
+  const k = Deno.env.get("NVIDIA_API_KEY"), m = Deno.env.get("NVIDIA_MODEL");
+  if (k && m) {
+    try {
+      const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${k}` },
+        body: JSON.stringify({ model: m, temperature: 0.1, max_tokens: 4000, messages: [{ role: "system", content: system }, { role: "user", content: user }] }), signal: AbortSignal.timeout(90000) });
+      if (r.ok) { const o = await r.json(); const t = o?.choices?.[0]?.message?.content || ""; if (t) return { texte: t, cout: 0, modele: m }; }
+    } catch { /* repli sur DeepSeek */ }
+  }
+  return ia(system, user, { max: 4000, jsonMode: true, temp: 0.1 });
+}
+const objet = (t: string) => { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
+function extraireHtml(t: string) {
+  const f = t.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  let h = (f ? f[1] : t).trim();
+  const i = h.search(/<!doctype html|<html/i);
+  if (i > 0) h = h.slice(i);
+  return h;
+}
+// Contrôle automatique : chaque script classique doit se compiler (on ne l'exécute pas).
+function controle(html: string): string[] {
+  const d: string[] = [];
+  if (!/<html[\s>]/i.test(html) || !/<\/html>/i.test(html)) d.push("La page n'est pas complète (balise html manquante ou coupée).");
+  if (!/<meta[^>]+viewport/i.test(html)) d.push("Il manque la balise meta viewport (affichage téléphone).");
+  if (/lorem ipsum/i.test(html)) d.push("Il reste du faux texte « lorem ipsum ».");
+  const re = /<script(?![^>]*\bsrc=)(?![^>]*type=["'](?:module|application\/ld\+json|text\/template)["'])[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null, n = 0;
+  while ((m = re.exec(html))) {
+    n++;
+    try { new Function(m[1]); } catch (e) { d.push(`Erreur de syntaxe JavaScript dans le script n° ${n} : ${(e as Error).message}`); }
+  }
+  return d;
+}
+function appliquer(html: string, corr: any[]): { html: string; n: number } {
+  let n = 0;
+  for (const c of Array.isArray(corr) ? corr.slice(0, 40) : []) {
+    if (typeof c?.chercher === "string" && typeof c?.remplacer === "string" && c.chercher && html.includes(c.chercher)) { html = html.replace(c.chercher, c.remplacer); n++; }
+  }
+  return { html, n };
+}
+
+/* ---------- consignes ---------- */
+const SYS_CADRER = `Tu es le chef de projet de l'atelier ineed.shopping. Un client grand public (aucune connaissance technique) te donne un ordre de travail.
+Ton rôle : comprendre ce qu'il veut et poser les 2 à 4 questions à choix qui changent vraiment le résultat (public, contenu, style, fonctions clés…). Jamais de question technique (langage, hébergement, base de données).
+Chaque question a 3 à 5 choix courts, concrets, en français simple ; "multi" vaut true si plusieurs choix peuvent se cumuler.
+Si l'ordre est déjà complet, pose au moins 2 questions de finition (style, ton).
+Ce que l'atelier sait livrer aujourd'hui : une application ou un site web complet en une page, qui marche tout de suite sur téléphone et ordinateur, données gardées sur l'appareil (pas de comptes ni de paiements réels pour l'instant). Si l'ordre demande autre chose (appli native, paiement réel, envoi de SMS), propose la version web la plus proche et dis-le dans "limite".
+Réponds en JSON : {"titre": "nom court du projet", "resume": "ce que tu as compris, en une phrase", "genre": "appli|site|outil|jeu|document|autre", "limite": "" ou une phrase, "questions": [{"id":"q1","q":"…","choix":["…","…","…"],"multi":false}]}`;
+
+const SYS_PLAN = `Tu es l'architecte de l'atelier ineed.shopping. À partir de l'ordre du client et de ses réponses, écris le plan précis d'un produit web fini, livrable en un seul fichier HTML (HTML + CSS + JavaScript sans framework, données gardées dans localStorage).
+Le produit doit être réellement utilisable, pas une maquette : chaque bouton fait quelque chose, les données saisies restent après rechargement, il y a des données d'exemple réalistes pour que ce ne soit pas vide.
+Réponds en JSON : {"nom": "…", "accroche": "…", "ecrans": [{"nom":"…","contenu":"…"}], "fonctions": ["…"], "donnees": ["…"], "style": {"ambiance":"…","couleurs":["#…","#…","#…"],"police":"une police Google Fonts"}, "criteres": ["critère vérifiable de réussite", "…"]}
+6 à 12 fonctions, 5 à 10 critères vérifiables. Langue du produit : celle de l'ordre du client.`;
+
+const SYS_CONSTRUIRE = `Tu es le développeur principal de l'atelier ineed.shopping, au niveau des meilleurs produits du marché. Tu reçois un plan et tu livres le produit fini.
+Règles :
+- Un seul fichier HTML complet, de <!doctype html> à </html>, rien d'autre dans ta réponse que ce fichier dans un bloc \`\`\`html.
+- CSS et JavaScript dans le fichier ; aucune bibliothèque externe sauf une police Google Fonts. Pas de framework.
+- Mobile d'abord (largeur 360 px sans défilement horizontal), parfait aussi sur ordinateur ; finition soignée (espacements, ombres légères, transitions, états vides, retours visuels après chaque action).
+- Toutes les fonctions du plan marchent vraiment ; données dans localStorage (try/catch autour de chaque accès), données d'exemple réalistes au premier lancement, bouton pour réinitialiser.
+- Aucune fenêtre alert/confirm/prompt : utiliser des messages intégrés à la page.
+- Accessibilité : contrastes suffisants, boutons d'au moins 44 px, libellés clairs.
+- Petite mention discrète en pied de page : « Créé avec ineed.shopping ».
+- Code complet : aucun « … », aucun TODO, aucune fonction vide.`;
+
+const SYS_RELIRE = `Tu es le contrôleur qualité de l'atelier ineed.shopping, indépendant du développeur. Tu reçois le plan, les critères et le fichier HTML livré, plus les défauts trouvés par le contrôle automatique.
+Vérifie chaque critère et cherche les bogues (fonction appelée mais absente, bouton sans effet, élément introuvable par son id, données non sauvegardées, débordement sur téléphone).
+Corrige par des remplacements exacts : "chercher" doit être un extrait copié à l'identique du fichier (assez long pour être unique), "remplacer" le nouveau texte.
+Réponds en JSON : {"note": 0-100, "criteres_ok": nombre, "defauts": ["…"], "corrections": [{"chercher":"…","remplacer":"…"}]}`;
+
+const SYS_RETOUCHER = `Tu es le développeur de l'atelier ineed.shopping. Le client demande une modification de son produit (fichier HTML ci-dessous).
+Fais exactement ce qu'il demande, sans rien casser du reste.
+Si la modification est locale, réponds en JSON : {"mode":"corrections","resume":"ce que tu as fait, une phrase simple","corrections":[{"chercher":"extrait exact et unique du fichier","remplacer":"…"}]}
+Si elle touche presque tout, réponds en JSON : {"mode":"complet","resume":"…","html":"le fichier complet"}`;
+
+/* ---------- journal et étapes ---------- */
+async function journal(id: string, etape: string, texte: string, cout = 0) {
+  await sql`update ineed_chantiers set etape=${etape}, maj_le=now(), cout_usd=cout_usd+${cout},
+    journal = journal || ${sql.json([{ le: new Date().toISOString(), etape, texte }])} where id=${id}`;
+}
+// Une étape par appel : chaque étape a ainsi tout le temps d'exécution d'un appel, puis l'atelier se relance lui-même.
+async function etape(id: string, suite: () => void) {
+  const [c] = await sql`select * from ineed_chantiers where id=${id}`;
+  if (!c || ["livre", "panne"].includes(c.etape)) return;
+  try {
+    const contexte = `Ordre du client : ${c.ordre}\n\nCe que le chef de projet a compris : ${JSON.stringify(c.cadrage)}\n\nRéponses du client aux questions : ${JSON.stringify(c.reponses)}`;
+    if (!c.plan) {
+      const r = await ia(SYS_PLAN, contexte, { max: 3000, jsonMode: true });
+      const plan = objet(r.texte);
+      if (!plan) throw new Error("plan illisible");
+      await sql`update ineed_chantiers set plan=${sql.json(plan)} where id=${id}`;
+      await journal(id, "construction", `Plan prêt : ${plan.ecrans?.length || 0} écrans, ${plan.fonctions?.length || 0} fonctions. Le développeur construit.`, r.cout);
+      return suite();
+    }
+    if (!c.html) {
+      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: 14000, fort: true, temp: 0.4 });
+      const html = extraireHtml(r.texte);
+      if (!/<html/i.test(html)) throw new Error("construction vide");
+      await sql`update ineed_chantiers set html=${html} where id=${id}`;
+      await journal(id, "controle", `Produit construit (${Math.round(html.length / 1024)} Ko). Le contrôleur qualité le vérifie.`, r.cout);
+      return suite();
+    }
+    // Contrôle : automatique puis relecture indépendante, deux tours au plus.
+    const tour = c.tours + 1;
+    const auto = controle(c.html);
+    const r = await relecteur(SYS_RELIRE, `Plan et critères :\n${JSON.stringify(c.plan)}\n\nDéfauts du contrôle automatique : ${auto.length ? auto.join(" | ") : "aucun"}\n\nFichier livré :\n${c.html}`);
+    const v = objet(r.texte) || {};
+    const note = Number(v.note) || c.note || 0;
+    const a = appliquer(c.html, v.corrections);
+    const reste = controle(a.html);
+    await sql`update ineed_chantiers set html=${a.html}, tours=${tour}, note=${note} where id=${id}`;
+    await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100, ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
+    if (tour < 2 && (reste.length || (note < 85 && a.n > 0))) return suite();
+    await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
+    await journal(id, "livre", `Livré. Note qualité ${note}/100.`);
+  } catch (e) {
+    await sql`update ineed_chantiers set erreur=${String((e as Error).message).slice(0, 300)}, maj_le=now() where id=${id}`;
+    await journal(id, "panne", "Une étape a échoué. Touchez « Reprendre » : l'atelier repart de la dernière étape réussie.");
+  }
+}
+async function retouche(id: string, consigne: string) {
+  const [c] = await sql`select html, plan from ineed_chantiers where id=${id}`;
+  try {
+    const r = await ia(SYS_RETOUCHER, `Plan d'origine : ${JSON.stringify(c.plan)}\n\nDemande du client : ${consigne}\n\nFichier actuel :\n${c.html}`, { max: 16000, jsonMode: true, temp: 0.2 });
+    const v = objet(r.texte) || {};
+    let html = c.html, n = 0;
+    if (v.mode === "complet" && typeof v.html === "string" && /<html/i.test(v.html)) { html = extraireHtml(v.html); n = 1; }
+    else { const a = appliquer(html, v.corrections); html = a.html; n = a.n; }
+    if (!n) throw new Error("rien appliqué");
+    const d = controle(html);
+    if (d.some((x) => x.startsWith("Erreur de syntaxe"))) throw new Error("syntaxe après retouche");
+    await sql`update ineed_chantiers set html=${html}, versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne, html }])} where id=${id}`;
+    await journal(id, "livre", `Retouche faite : ${String(v.resume || consigne).slice(0, 200)}`, r.cout);
+  } catch {
+    await journal(id, "livre", "Je n'ai pas réussi cette retouche sans risquer de casser le reste. Reformulez-la plus simplement : le produit est resté comme avant.");
+  }
+}
+const lancer = (p: Promise<unknown>) => { try { (globalThis as any).EdgeRuntime?.waitUntil(p); } catch { /* exécution directe */ } };
+// Relance l'atelier dans un nouvel appel (mêmes en-têtes que l'appel reçu).
+function relanceur(req: Request, id: string) {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  for (const k of ["apikey", "authorization"]) { const v = req.headers.get(k); if (v) h[k] = v; }
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/ineed-atelier`;
+  return () => lancer(fetch(url, { method: "POST", headers: h, body: JSON.stringify({ action: "suite", id }) }).then((r) => r.text()).catch(() => {}));
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ erreur: "methode" }, 405);
+  let b: any;
+  try { b = await req.json(); } catch { return json({ erreur: "requete" }, 400); }
+  try {
+    await schema();
+    const ip = await ipHash(req);
+    const id = typeof b.id === "string" && /^[0-9a-f-]{36}$/i.test(b.id) ? b.id : null;
+
+    if (b.action === "cadrer") {
+      const ordre = String(b.ordre || "").trim().slice(0, 2000);
+      if (ordre.length < 8) return json({ erreur: "Décrivez ce que vous voulez en une phrase au moins." }, 400);
+      if (await limite(ip, "cadrer")) return json({ erreur: "Vous avez beaucoup utilisé l'atelier aujourd'hui. Revenez demain." }, 429);
+      const r = await ia(SYS_CADRER, ordre, { max: 1500, jsonMode: true });
+      const c = objet(r.texte);
+      if (!c?.questions?.length) return json({ erreur: "Je n'ai pas bien compris. Reformulez en une phrase simple." }, 502);
+      c.questions = c.questions.slice(0, 4).map((q: any, i: number) => ({ id: q.id || "q" + (i + 1), q: String(q.q || ""), choix: (q.choix || []).slice(0, 5).map(String), multi: !!q.multi }));
+      return json({ ok: true, cadrage: c });
+    }
+    if (b.action === "construire") {
+      const ordre = String(b.ordre || "").trim().slice(0, 2000);
+      if (ordre.length < 8) return json({ erreur: "ordre" }, 400);
+      if (await limite(ip, "construire")) return json({ erreur: "L'atelier a atteint sa limite de constructions pour aujourd'hui. Revenez demain." }, 429);
+      const [c] = await sql`insert into ineed_chantiers(ip_h, ordre, cadrage, reponses) values (${ip}, ${ordre}, ${sql.json(b.cadrage || null)}, ${sql.json(b.reponses || {})}) returning id`;
+      await journal(c.id, "plan", "Ordre reçu. L'atelier se met au travail.");
+      lancer(etape(c.id, relanceur(req, c.id)));
+      return json({ ok: true, id: c.id });
+    }
+    if (b.action === "reprendre" && id) {
+      const [c] = await sql`select etape, erreur from ineed_chantiers where id=${id}`;
+      if (!c) return json({ erreur: "introuvable" }, 404);
+      if (c.etape !== "panne") return json({ ok: true });
+      await sql`update ineed_chantiers set erreur=null where id=${id}`;
+      await journal(id, "plan", "Reprise demandée.");
+      lancer(etape(id, relanceur(req, id)));
+      return json({ ok: true });
+    }
+    if (b.action === "suite" && id) {
+      lancer(etape(id, relanceur(req, id)));
+      return json({ ok: true });
+    }
+    if (b.action === "retoucher" && id) {
+      const consigne = String(b.consigne || "").trim().slice(0, 1500);
+      if (consigne.length < 3) return json({ erreur: "consigne" }, 400);
+      if (await limite(ip, "retoucher")) return json({ erreur: "Beaucoup de retouches aujourd'hui. Revenez demain." }, 429);
+      const [c] = await sql`select etape from ineed_chantiers where id=${id}`;
+      if (!c || c.etape !== "livre") return json({ erreur: "Le produit n'est pas encore livré." }, 409);
+      await journal(id, "retouche", `Retouche demandée : ${consigne.slice(0, 200)}`);
+      lancer(retouche(id, consigne));
+      return json({ ok: true });
+    }
+    if (b.action === "etat" && id) {
+      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, jsonb_array_length(versions) nv,
+        case when ${!!b.html} then html end html from ineed_chantiers where id=${id}`;
+      if (!c) return json({ erreur: "introuvable" }, 404);
+      // Une étape bloquée plus de 6 minutes (exécution coupée) est signalée en panne pour pouvoir reprendre.
+      if (!["livre", "panne"].includes(c.etape) && Date.now() - new Date(c.maj_le).getTime() > 360000) {
+        await journal(id, "panne", "L'étape a pris trop de temps. Touchez « Reprendre ».");
+        c.etape = "panne";
+      }
+      return json({ ok: true, chantier: { ...c, cout_usd: Number(c.cout_usd) } });
+    }
+    return json({ erreur: "action" }, 400);
+  } catch (e) {
+    console.error("atelier :", (e as Error).message);
+    return json({ erreur: (e as Error).message === "cle" ? "L'atelier n'est pas encore activé." : "L'atelier ne répond pas pour le moment. Réessayez dans un instant." }, 502);
+  }
+});

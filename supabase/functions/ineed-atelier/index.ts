@@ -60,20 +60,36 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
   const key = Deno.env.get("DEEPSEEK_API_KEY");
   if (!key) throw new Error("cle");
   const modele = (o.fort && Deno.env.get("INEED_MODEL_FORT")) || Deno.env.get("FLOVA_MODEL") || "deepseek-flash";
+  // Réponse en flux continu : la connexion ne reste jamais muette pendant une longue fabrication.
   for (let essai = 0; essai < 2; essai++) {
-    const r = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}),
-        messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
-    }).catch(() => null);
-    if (!r || !r.ok) { noter(0, true); continue; }
-    const out = await r.json().catch(() => null);
-    const u = out?.usage || {};
-    const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
-    const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
-    noter(cout);
-    const texte = out?.choices?.[0]?.message?.content || "";
-    if (texte) return { texte, cout, modele: out?.model || modele };
+    try {
+      const r = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, stream: true, stream_options: { include_usage: true },
+          ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}),
+          messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+      });
+      if (!r.ok || !r.body) { console.error("deepseek", r.status, (await r.text().catch(() => "")).slice(0, 300)); noter(0, true); continue; }
+      const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "", texte = "", u: any = {}, nom = modele;
+      for (;;) {
+        const { value, done } = await rd.read();
+        if (done) break;
+        buf += value;
+        let i: number;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const ligne = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!ligne.startsWith("data:")) continue;
+          const d = ligne.slice(5).trim();
+          if (d === "[DONE]") continue;
+          try { const o2 = JSON.parse(d); texte += o2?.choices?.[0]?.delta?.content || ""; if (o2.usage) u = o2.usage; if (o2.model) nom = o2.model; } catch { /* morceau incomplet */ }
+        }
+      }
+      const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
+      const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
+      noter(cout);
+      if (texte) return { texte, cout, modele: nom };
+    } catch (e) { console.error("deepseek coupé :", (e as Error).message); noter(0, true); }
   }
   throw new Error("moteur");
 }

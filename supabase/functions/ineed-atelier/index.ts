@@ -22,6 +22,8 @@ function schema() {
       journal jsonb not null default '[]'::jsonb, versions jsonb not null default '[]'::jsonb, erreur text, cout_usd numeric not null default 0, tours int not null default 0, note int);
     alter table public.ineed_chantiers add column if not exists tours int not null default 0;
     alter table public.ineed_chantiers add column if not exists note int;
+    alter table public.ineed_chantiers add column if not exists brouillon text;
+    alter table public.ineed_chantiers add column if not exists tranches int not null default 0;
     create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
     create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
     alter table public.ineed_chantiers enable row level security;
@@ -55,25 +57,32 @@ const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
 function noter(cout: number, erreur = false) {
   fetch(ROUTEUR + "usine_noter", { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify({ p_moteur: "deepseek-flash", p_ajout: cout, p_erreur: erreur }), signal: AbortSignal.timeout(1500) }).catch(() => {});
 }
-type Rep = { texte: string; cout: number; modele: string };
-async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number } = {}): Promise<Rep> {
+type Rep = { texte: string; cout: number; modele: string; fini: boolean };
+async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number; delaiMs?: number; debut?: string } = {}): Promise<Rep> {
   const key = Deno.env.get("DEEPSEEK_API_KEY");
   if (!key) throw new Error("cle");
   const modele = (o.fort && Deno.env.get("INEED_MODEL_FORT")) || Deno.env.get("FLOVA_MODEL") || "deepseek-flash";
   // Réponse en flux continu : la connexion ne reste jamais muette pendant une longue fabrication.
   for (let essai = 0; essai < 2; essai++) {
     try {
-      const r = await fetch("https://api.deepseek.com/chat/completions", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      // Suite d'un texte déjà commencé : complétion par préfixe (point d'accès bêta de DeepSeek).
+      const msgs: any[] = [{ role: "system", content: system }, { role: "user", content: user }];
+      if (o.debut) msgs.push({ role: "assistant", content: o.debut, prefix: true });
+      const ctl = new AbortController();
+      const r = await fetch(o.debut ? "https://api.deepseek.com/beta/chat/completions" : "https://api.deepseek.com/chat/completions", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, signal: ctl.signal,
         body: JSON.stringify({ model: modele, temperature: o.temp ?? 0.3, max_tokens: o.max ?? 4000, stream: true, stream_options: { include_usage: true },
-          ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}),
-          messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+          ...(o.jsonMode ? { response_format: { type: "json_object" } } : {}), messages: msgs }),
       });
+      const limiteT = o.delaiMs ? Date.now() + o.delaiMs : 0;
       if (!r.ok || !r.body) { console.error("deepseek", r.status, (await r.text().catch(() => "")).slice(0, 300)); noter(0, true); continue; }
       const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buf = "", texte = "", u: any = {}, nom = modele;
+      let buf = "", texte = "", u: any = {}, nom = modele, fini = false, coupe = false;
       for (;;) {
-        const { value, done } = await rd.read();
+        if (limiteT && Date.now() > limiteT) { coupe = true; try { ctl.abort(); } catch { /* rien */ } break; }
+        let lu;
+        try { lu = await rd.read(); } catch { coupe = !!limiteT; break; }
+        const { value, done } = lu;
         if (done) break;
         buf += value;
         let i: number;
@@ -82,13 +91,15 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
           if (!ligne.startsWith("data:")) continue;
           const d = ligne.slice(5).trim();
           if (d === "[DONE]") continue;
-          try { const o2 = JSON.parse(d); texte += o2?.choices?.[0]?.delta?.content || ""; if (o2.usage) u = o2.usage; if (o2.model) nom = o2.model; } catch { /* morceau incomplet */ }
+          try { const o2 = JSON.parse(d); texte += o2?.choices?.[0]?.delta?.content || ""; if (o2?.choices?.[0]?.finish_reason) fini = true; if (o2.usage) u = o2.usage; if (o2.model) nom = o2.model; } catch { /* morceau incomplet */ }
         }
       }
-      const hit = Number(u.prompt_cache_hit_tokens || 0), pin = Number(u.prompt_tokens || 0), pout = Number(u.completion_tokens || 0);
+      // Sans compte rendu (flux coupé), coût estimé à partir de la longueur : environ 3,5 caractères par jeton.
+      const pin = Number(u.prompt_tokens || Math.round((system.length + user.length + (o.debut || "").length) / 3.5));
+      const hit = Number(u.prompt_cache_hit_tokens || 0), pout = Number(u.completion_tokens || Math.round(texte.length / 3.5));
       const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
       noter(cout);
-      if (texte) return { texte, cout, modele: nom };
+      if (texte || coupe) return { texte, cout, modele: nom, fini: fini && !coupe };
     } catch (e) { console.error("deepseek coupé :", (e as Error).message); noter(0, true); }
   }
   throw new Error("moteur");
@@ -100,10 +111,10 @@ async function relecteur(system: string, user: string): Promise<Rep> {
     try {
       const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${k}` },
         body: JSON.stringify({ model: m, temperature: 0.1, max_tokens: 4000, messages: [{ role: "system", content: system }, { role: "user", content: user }] }), signal: AbortSignal.timeout(90000) });
-      if (r.ok) { const o = await r.json(); const t = o?.choices?.[0]?.message?.content || ""; if (t) return { texte: t, cout: 0, modele: m }; }
+      if (r.ok) { const o = await r.json(); const t = o?.choices?.[0]?.message?.content || ""; if (t) return { texte: t, cout: 0, modele: m, fini: true }; }
     } catch { /* repli sur DeepSeek */ }
   }
-  return ia(system, user, { max: 4000, jsonMode: true, temp: 0.1 });
+  return ia(system, user, { max: 4000, jsonMode: true, temp: 0.1, delaiMs: 130000 });
 }
 const objet = (t: string) => { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
 function extraireHtml(t: string) {
@@ -167,7 +178,7 @@ Réponds en JSON : {"note": 0-100, "criteres_ok": nombre, "defauts": ["…"], "c
 const SYS_RETOUCHER = `Tu es le développeur de l'atelier ineed.shopping. Le client demande une modification de son produit (fichier HTML ci-dessous).
 Fais exactement ce qu'il demande, sans rien casser du reste.
 Si la modification est locale, réponds en JSON : {"mode":"corrections","resume":"ce que tu as fait, une phrase simple","corrections":[{"chercher":"extrait exact et unique du fichier","remplacer":"…"}]}
-Si elle touche presque tout, réponds en JSON : {"mode":"complet","resume":"…","html":"le fichier complet"}`;
+Préfère toujours des corrections ciblées, même nombreuses ; le mode complet est réservé à une refonte totale : {"mode":"complet","resume":"…","html":"le fichier complet"}`;
 
 /* ---------- journal et étapes ---------- */
 async function journal(id: string, etape: string, texte: string, cout = 0) {
@@ -190,10 +201,20 @@ async function etape(id: string, suite: () => void) {
       return suite();
     }
     if (!c.html) {
-      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: 14000, fort: true, temp: 0.4 });
-      const html = extraireHtml(r.texte);
+      // Construction par tranches de 100 s : le brouillon est gardé, l'appel suivant reprend exactement où il s'est arrêté.
+      const debut = c.brouillon || "";
+      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: debut ? 8000 : 14000, fort: true, temp: 0.4, delaiMs: 100000, debut: debut || undefined });
+      const tout = debut + r.texte;
+      const termine = r.fini || /<\/html>\s*(```)?\s*$/i.test(tout);
+      if (!termine) {
+        if (c.tranches >= 6) throw new Error("construction trop longue");
+        await sql`update ineed_chantiers set brouillon=${tout}, tranches=tranches+1 where id=${id}`;
+        await journal(id, "construction", `Construction en cours : ${Math.round(tout.length / 1024)} Ko écrits.`, r.cout);
+        return suite();
+      }
+      const html = extraireHtml(tout);
       if (!/<html/i.test(html)) throw new Error("construction vide");
-      await sql`update ineed_chantiers set html=${html} where id=${id}`;
+      await sql`update ineed_chantiers set html=${html}, brouillon=null where id=${id}`;
       await journal(id, "controle", `Produit construit (${Math.round(html.length / 1024)} Ko). Le contrôleur qualité le vérifie.`, r.cout);
       return suite();
     }
@@ -218,7 +239,7 @@ async function etape(id: string, suite: () => void) {
 async function retouche(id: string, consigne: string) {
   const [c] = await sql`select html, plan from ineed_chantiers where id=${id}`;
   try {
-    const r = await ia(SYS_RETOUCHER, `Plan d'origine : ${JSON.stringify(c.plan)}\n\nDemande du client : ${consigne}\n\nFichier actuel :\n${c.html}`, { max: 16000, jsonMode: true, temp: 0.2 });
+    const r = await ia(SYS_RETOUCHER, `Plan d'origine : ${JSON.stringify(c.plan)}\n\nDemande du client : ${consigne}\n\nFichier actuel :\n${c.html}`, { max: 6000, jsonMode: true, temp: 0.2, delaiMs: 130000 });
     const v = objet(r.texte) || {};
     let html = c.html, n = 0;
     if (v.mode === "complet" && typeof v.html === "string" && /<html/i.test(v.html)) { html = extraireHtml(v.html); n = 1; }
@@ -271,11 +292,11 @@ Deno.serve(async (req) => {
       return json({ ok: true, id: c.id });
     }
     if (b.action === "reprendre" && id) {
-      const [c] = await sql`select etape, erreur from ineed_chantiers where id=${id}`;
+      const [c] = await sql`select etape, (plan is not null) a_plan, (html is not null) a_html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
       if (c.etape !== "panne") return json({ ok: true });
-      await sql`update ineed_chantiers set erreur=null where id=${id}`;
-      await journal(id, "plan", "Reprise demandée.");
+      await sql`update ineed_chantiers set erreur=null, tranches=0 where id=${id}`;
+      await journal(id, c.a_html ? "controle" : c.a_plan ? "construction" : "plan", "Reprise demandée : l'atelier repart de la dernière étape réussie.");
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
     }

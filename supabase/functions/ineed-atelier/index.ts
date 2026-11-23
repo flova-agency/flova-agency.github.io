@@ -277,7 +277,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (b.action === "etat" && id) {
-      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, jsonb_array_length(versions) nv,
+      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, jsonb_array_length(versions) nv,
         case when ${!!b.html} then html end html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
       // Une étape bloquée plus de 6 minutes (exécution coupée) est signalée en panne pour pouvoir reprendre.

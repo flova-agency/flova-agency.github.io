@@ -302,6 +302,11 @@ Deno.serve(async (req) => {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
     }
+    if (b.action === "modeles") { // liste publique des moteurs disponibles (aucun secret renvoyé)
+      const r = await fetch("https://api.deepseek.com/models", { headers: { Authorization: `Bearer ${Deno.env.get("DEEPSEEK_API_KEY")}` } });
+      const j = await r.json().catch(() => ({}));
+      return json({ ok: r.ok, modeles: (j.data || []).map((m: any) => m.id), defaut: Deno.env.get("FLOVA_MODEL") || "deepseek-flash", fort: Deno.env.get("INEED_MODEL_FORT") || null, nvidia: !!Deno.env.get("NVIDIA_API_KEY") });
+    }
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });

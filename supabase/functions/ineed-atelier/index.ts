@@ -307,6 +307,18 @@ Deno.serve(async (req) => {
       const j = await r.json().catch(() => ({}));
       return json({ ok: r.ok, modeles: (j.data || []).map((m: any) => m.id), defaut: Deno.env.get("FLOVA_MODEL") || "deepseek-flash", fort: Deno.env.get("INEED_MODEL_FORT") || null, nvidia: !!Deno.env.get("NVIDIA_API_KEY") });
     }
+    if (b.action === "essai_moteur") { // mesure de vitesse d'un moteur (réservé aux tests de l'atelier)
+      const t0 = Date.now(); let premier = 0, raison = 0, contenu = 0, fin = "", statut = 0, err = "";
+      try {
+        const r = await fetch("https://api.deepseek.com/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("DEEPSEEK_API_KEY")}` },
+          body: JSON.stringify({ model: String(b.modele || "deepseek-flash"), max_tokens: 1500, stream: true, ...(b.extra || {}), messages: [{ role: "user", content: "Écris une page HTML d'une liste de tâches, complète, environ 80 lignes." }] }), signal: AbortSignal.timeout(60000) });
+        statut = r.status;
+        if (!r.ok) err = (await r.text()).slice(0, 300);
+        else { const rd = r.body!.pipeThrough(new TextDecoderStream()).getReader(); let buf = "";
+          for (;;) { const { value, done } = await rd.read(); if (done) break; buf += value; let i; while ((i = buf.indexOf("\n")) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!l.startsWith("data:") || l.includes("[DONE]")) continue; try { const d = JSON.parse(l.slice(5)).choices?.[0]; if (!d) continue; if (!premier && (d.delta?.content || d.delta?.reasoning_content)) premier = Date.now() - t0; raison += (d.delta?.reasoning_content || "").length; contenu += (d.delta?.content || "").length; if (d.finish_reason) fin = d.finish_reason; } catch { /* */ } } } }
+      } catch (e) { err = (e as Error).message; }
+      return json({ statut, err, ms: Date.now() - t0, premier_ms: premier, car_raisonnement: raison, car_contenu: contenu, fin });
+    }
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });

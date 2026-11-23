@@ -58,7 +58,7 @@ function noter(cout: number, erreur = false) {
   fetch(ROUTEUR + "usine_noter", { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify({ p_moteur: "deepseek-flash", p_ajout: cout, p_erreur: erreur }), signal: AbortSignal.timeout(1500) }).catch(() => {});
 }
 type Rep = { texte: string; cout: number; modele: string; fini: boolean };
-async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number; delaiMs?: number; debut?: string } = {}): Promise<Rep> {
+async function ia(system: string, user: string, o: { max?: number; jsonMode?: boolean; fort?: boolean; temp?: number; delaiMs?: number; debut?: string; progres?: (t: string) => Promise<unknown> } = {}): Promise<Rep> {
   const key = Deno.env.get("DEEPSEEK_API_KEY");
   if (!key) throw new Error("cle");
   const modele = (o.fort && Deno.env.get("INEED_MODEL_FORT")) || Deno.env.get("FLOVA_MODEL") || "deepseek-flash";
@@ -77,13 +77,14 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
       const limiteT = o.delaiMs ? Date.now() + o.delaiMs : 0;
       if (!r.ok || !r.body) { console.error("deepseek", r.status, (await r.text().catch(() => "")).slice(0, 300)); noter(0, true); continue; }
       const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buf = "", texte = "", u: any = {}, nom = modele, fini = false, coupe = false;
+      let buf = "", texte = "", u: any = {}, nom = modele, fini = false, coupe = false, vu = Date.now();
       for (;;) {
         if (limiteT && Date.now() > limiteT) { coupe = true; try { ctl.abort(); } catch { /* rien */ } break; }
         let lu;
         try { lu = await rd.read(); } catch { coupe = !!limiteT; break; }
         const { value, done } = lu;
         if (done) break;
+        if (o.progres && Date.now() - vu > 12000) { vu = Date.now(); o.progres(texte).catch(() => {}); }
         buf += value;
         let i: number;
         while ((i = buf.indexOf("\n")) >= 0) {
@@ -203,7 +204,8 @@ async function etape(id: string, suite: () => void) {
     if (!c.html) {
       // Construction par tranches de 100 s : le brouillon est gardé, l'appel suivant reprend exactement où il s'est arrêté.
       const debut = c.brouillon || "";
-      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: debut ? 8000 : 14000, fort: true, temp: 0.4, delaiMs: 100000, debut: debut || undefined });
+      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: debut ? 8000 : 14000, fort: true, temp: 0.4, delaiMs: 100000, debut: debut || undefined,
+        progres: (t) => sql`update ineed_chantiers set maj_le=now(), journal = journal || ${sql.json([{ le: new Date().toISOString(), etape: "construction", texte: `Construction en cours : ${Math.round((debut.length + t.length) / 1024)} Ko écrits.` }])}, brouillon=${debut + t} where id=${id}` });
       const tout = debut + r.texte;
       const termine = r.fini || /<\/html>\s*(```)?\s*$/i.test(tout);
       if (!termine) {

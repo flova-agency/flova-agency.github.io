@@ -237,25 +237,33 @@ Réponds en JSON : {"titre": "nom court du projet", "resume": "ce que tu as comp
 
 const SYS_PLAN = `Tu es l'architecte de l'atelier ineed.shopping. À partir de l'ordre du client et de ses réponses, écris le plan précis d'un produit web fini, livrable en un seul fichier HTML (HTML + CSS + JavaScript sans framework, données gardées dans localStorage).
 Le produit doit être réellement utilisable, pas une maquette : chaque bouton fait quelque chose, les données saisies restent après rechargement, il y a des données d'exemple réalistes pour que ce ne soit pas vide.
-Réponds en JSON : {"nom": "…", "accroche": "…", "ecrans": [{"nom":"…","contenu":"une phrase"}], "fonctions": ["…"], "donnees": ["…"], "style": {"ambiance":"…","couleurs":["#…","#…","#…"],"police":"une police Google Fonts"}, "criteres": ["critère vérifiable de réussite", "…"]}
-6 à 12 fonctions, 5 à 10 critères vérifiables. Langue du produit : celle de l'ordre du client.`;
+Réponds en JSON : {"nom": "…", "accroche": "…", "ecrans": [{"nom":"…","contenu":"une phrase"}], "fonctions": ["…"], "donnees": ["…"], "style": {"ambiance":"…","reference":"2 ou 3 marques de luxe ou studios dont l'univers inspire le produit (ex. Aesop, Apple, Dior, Aman, Nike)","ouverture":"la première image qui doit couper le souffle : composition, effet, mouvement","couleurs":["#…","#…","#…","#…"],"police":"police Google Fonts des titres","police_texte":"police Google Fonts du texte","signature":"l'effet visuel signature unique de ce produit (ex. dégradé animé, grain photo, typographie géante en surimpression)"}, "criteres": ["critère vérifiable de réussite", "…"]}
+6 à 12 fonctions, 5 à 10 critères vérifiables. Langue du produit : celle de l'ordre du client.
+Direction artistique : choisis un univers fort, propre au métier et au public (jamais le même gabarit d'un produit à l'autre), digne d'une grande marque. Le premier coup d'œil doit provoquer un « waouh ».`;
 
 const SYS_CONSTRUIRE = `Tu es le développeur principal de l'atelier ineed.shopping, au niveau des meilleurs produits du marché. Tu reçois un plan et tu livres le produit fini.
 Règles :
 - Un seul fichier HTML complet, de <!doctype html> à </html>, rien d'autre dans ta réponse que ce fichier dans un bloc \`\`\`html.
 - CSS et JavaScript dans le fichier ; aucune bibliothèque externe sauf une police Google Fonts. Pas de framework.
-- Mobile d'abord (largeur 360 px sans défilement horizontal), parfait aussi sur ordinateur ; finition soignée (espacements, ombres légères, transitions, états vides, retours visuels après chaque action).
+- Mobile d'abord (largeur 360 px sans défilement horizontal), parfait aussi sur ordinateur ; finition de très haut niveau (espacements généreux, profondeur, transitions, états vides dessinés, retours visuels après chaque action).
 - Toutes les fonctions du plan marchent vraiment ; données dans localStorage (try/catch autour de chaque accès), données d'exemple réalistes au premier lancement, bouton pour réinitialiser.
 - Aucune fenêtre alert/confirm/prompt : utiliser des messages intégrés à la page.
 - Accessibilité : contrastes suffisants dans TOUS les états (onglet actif et inactif, survol, fond sombre et clair : jamais de texte blanc sur fond blanc), boutons d'au moins 44 px, libellés clairs.
 - Aucun mot technique dans l'interface (pas de « JSON », « localStorage », « données »), parler comme à un client : « Sauvegarder mes devis », « Récupérer une sauvegarde ».
+- DIRECTION ARTISTIQUE — exigence absolue du fondateur : le produit doit en mettre plein la vue dès la première seconde, au niveau des sites des grandes marques (Apple, Aesop, Dior, Aman, Nike, studios primés Awwwards). Le façadisme est voulu : c'est lui qui fait signer les clients.
+  • Ouverture spectaculaire en plein écran : composition audacieuse, typographie géante (titres de 48 à 96 px sur téléphone, clamp()), contrastes forts, profondeur (dégradés riches multi-couches, halos, grain, verre dépoli, formes SVG décoratives), aucune zone fade.
+  • Mouvement : animations d'entrée en cascade, apparition au défilement (IntersectionObserver), survols vivants, transitions fluides de 200 à 600 ms ; respecter prefers-reduced-motion.
+  • Palette signature du plan appliquée avec audace ; deux polices bien contrastées (titres et texte) ; hiérarchie nette ; grandes respirations.
+  • INTERDIT, car vu comme basique : cartes beiges ou grises posées sur fond clair, pastilles arrondies génériques en rangée, boutons à simple contour pâle, listes plates sans relief, emoji en guise d'illustration, rendu « fichier de présentation ».
+  • Les écrans de travail (agenda, listes, formulaires) gardent la même richesse : en-têtes illustrés, chiffres mis en scène, états vides dessinés, boutons pleins et éclatants.
 - Petite mention discrète en pied de page : « Créé avec ineed.shopping ».
 - Code complet : aucun « … », aucun TODO, aucune fonction vide.`;
 
 const SYS_RELIRE = `Tu es le contrôleur qualité de l'atelier ineed.shopping, indépendant du développeur. Tu reçois le plan, les critères et le fichier HTML livré, plus les défauts trouvés par le contrôle automatique.
 Vérifie chaque critère et cherche les bogues (texte invisible car de même couleur que son fond dans un état actif ou inactif, mot technique visible par le client, fonction appelée mais absente, bouton sans effet, élément introuvable par son id, données non sauvegardées, débordement sur téléphone).
 Corrige par des remplacements exacts : "chercher" doit être un extrait copié à l'identique du fichier (assez long pour être unique), "remplacer" le nouveau texte.
-Réponds en JSON : {"note": 0-100, "criteres_ok": nombre, "defauts": ["…"], "corrections": [{"chercher":"…","remplacer":"…"}]}`;
+Tu es aussi directeur artistique : note "design" de 0 à 100 l'effet au premier coup d'œil, comme un client exigeant qui compare aux sites des grandes marques (ouverture spectaculaire, typographie, profondeur, mouvement, palette, absence de tout élément basique : cartes beiges, pastilles génériques, boutons à contour pâle, texte peu lisible). En dessous de 85, tes corrections doivent rehausser le design (CSS plus audacieux, ouverture plus forte), pas seulement réparer.
+Réponds en JSON : {"note": 0-100, "design": 0-100, "criteres_ok": nombre, "defauts": ["…"], "corrections": [{"chercher":"…","remplacer":"…"}]}`;
 
 const SYS_RETOUCHER = `Tu es le développeur de l'atelier ineed.shopping. Le client demande une modification de son produit (fichier HTML ci-dessous).
 Fais exactement ce qu'il demande, sans rien casser du reste.
@@ -301,17 +309,18 @@ async function etape(id: string, suite: () => void) {
       await journal(id, "controle", `Produit construit (${Math.round(html.length / 1024)} Ko). Le contrôleur qualité le vérifie.`, r.cout);
       return suite();
     }
-    // Contrôle : automatique puis relecture indépendante, deux tours au plus.
+    // Contrôle : automatique puis relecture indépendante (qualité + direction artistique), trois tours au plus.
     const tour = c.tours + 1;
     const auto = controle(c.html);
     const r = await relecteur(SYS_RELIRE, `Plan et critères :\n${JSON.stringify(c.plan)}\n\nDéfauts du contrôle automatique : ${auto.length ? auto.join(" | ") : "aucun"}\n\nFichier livré :\n${c.html}`);
     const v = objet(r.texte) || {};
-    const note = Number(v.note) || c.note || 0;
+    const design = Number(v.design) || 0;
+    const note = Math.min(Number(v.note) || c.note || 0, design || 100);
     const a = appliquer(c.html, v.corrections);
     const reste = controle(a.html);
     await sql`update ineed_chantiers set html=${a.html}, tours=${tour}, note=${note} where id=${id}`;
-    await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100, ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
-    if (tour < 2 && (reste.length || (note < 85 && a.n > 0))) return suite();
+    await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
+    if (tour < 3 && (reste.length || (note < 85 && a.n > 0))) return suite();
     await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
     await journal(id, "livre", `Livré. Note qualité ${note}/100.`);
   } catch (e) {

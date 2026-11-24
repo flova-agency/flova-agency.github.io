@@ -271,7 +271,7 @@ async function ia(system: string, user: string, o: { max?: number; jsonMode?: bo
       const cout = (hit * PRICE.hit + Math.max(0, pin - hit) * PRICE.miss + pout * PRICE.out) / 1e6;
       noter(cout, false, modele);
       if (texte || coupe) return { texte, cout, modele: nom, fini: fini && !coupe };
-    } catch (e) { console.error("deepseek coupé :", (e as Error).message); noter(0, true); }
+    } catch (e) { console.error("deepseek coupé :", (e as Error).message); noter(0, true, modele); }
   }
   throw new Error("moteur");
 }

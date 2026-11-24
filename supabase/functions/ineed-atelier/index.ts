@@ -671,7 +671,7 @@ Deno.serve(async (req) => {
       const avecHtml = b.html !== false;
       const l = await sql`select c.slug, c.maj_le, c.etape, ${avecHtml ? sql`c.html` : sql`null::text as html`}
         from ineed_chantiers c left join auth.users u on u.id = c.user_id
-        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and coalesce(u.email, '') !~ '^robot-'
+        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and (${b.robots === true} or coalesce(u.email, '') !~ '^robot-')
         order by c.maj_le limit 200`;
       return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, etat: x.etape === "livre" && x.html ? "en_ligne" : "retire" })) });
     }

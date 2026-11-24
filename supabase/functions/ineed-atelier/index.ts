@@ -26,6 +26,14 @@ function schema() {
     alter table public.ineed_chantiers add column if not exists tranches int not null default 0;
     alter table public.ineed_chantiers add column if not exists relances int not null default 0;
     alter table public.ineed_chantiers add column if not exists cle_envoi text;
+    alter table public.ineed_chantiers add column if not exists user_id uuid;
+    create index if not exists ineed_chantiers_user on public.ineed_chantiers(user_id, cree_le desc);
+    create index if not exists ineed_chantiers_ip on public.ineed_chantiers(ip_h, cree_le desc);
+    create table if not exists public.ineed_comptes(
+      user_id uuid primary key, email text, cree_le timestamptz not null default now(), stripe_client text, abonnement text,
+      statut text, fin_periode timestamptz, resiliation boolean not null default false, verifie_le timestamptz);
+    alter table public.ineed_comptes enable row level security;
+    revoke all on public.ineed_comptes from anon, authenticated;
     create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
     create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
     alter table public.ineed_chantiers enable row level security;
@@ -50,6 +58,70 @@ async function limite(ip: string, action: keyof typeof LIM) {
   }
   await sql`insert into ineed_appels(ip_h, action) values (${ip}, ${action})`;
   return false;
+}
+
+/* ---------- comptes, offres et abonnement ---------- */
+// Offres (décisions de Karim du 24/11/2026) : 1 création offerte, puis Ultra Premium à 99 €/mois = 30 créations par mois, retouches illimitées.
+const OFFRE = { gratuites: 1, ultra_mois: 30, prix_centimes: 9900 };
+const ILLIMITES = new Set(["elbazikarim@gmail.com"]); // le fondateur teste sans payer
+const ROBOT = /^robot-[a-z0-9]{4,20}@ineed\.shopping$/; // comptes de test du robot de contrôle
+const SITE = "https://ineed.shopping/atelier/";
+function cleService() {
+  let k = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!k) { try { k = Object.values(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"))[0] as string; } catch { /* rien */ } }
+  return k;
+}
+function clePublique() {
+  let k = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  if (!k) { try { k = Object.values(JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}"))[0] as string; } catch { /* rien */ } }
+  return k;
+}
+type Qui = { id: string; email: string } | null;
+async function quiEst(req: Request): Promise<Qui> {
+  const a = req.headers.get("authorization") || "";
+  const jeton = a.replace(/^Bearer\s+/i, "");
+  if (!jeton || jeton.startsWith("sb_") || jeton.split(".").length !== 3) return null;
+  try {
+    const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, { headers: { apikey: clePublique(), Authorization: `Bearer ${jeton}` } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u?.id ? { id: u.id, email: String(u.email || "").toLowerCase() } : null;
+  } catch { return null; }
+}
+async function stripe(chemin: string, params?: Record<string, string>, methode = "POST") {
+  const r = await fetch(`https://api.stripe.com/v1${chemin}`, { method: methode, headers: { Authorization: `Bearer ${Deno.env.get("STRIPE_SECRET_KEY") || ""}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params ? new URLSearchParams(params).toString() : undefined });
+  return { ok: r.ok, corps: await r.json().catch(() => ({})) as any };
+}
+async function compte(qui: NonNullable<Qui>) {
+  const [c] = await sql`insert into ineed_comptes(user_id, email) values (${qui.id}, ${qui.email})
+    on conflict (user_id) do update set email=excluded.email returning *`;
+  // État de l'abonnement relu chez Stripe au plus toutes les heures.
+  if (c.abonnement && (!c.verifie_le || Date.now() - new Date(c.verifie_le).getTime() > 3600000)) {
+    const r = await stripe(`/subscriptions/${c.abonnement}`, undefined, "GET");
+    if (r.ok) {
+      const fin = r.corps.current_period_end || r.corps.items?.data?.[0]?.current_period_end;
+      const [m] = await sql`update ineed_comptes set statut=${r.corps.status}, resiliation=${!!r.corps.cancel_at_period_end},
+        fin_periode=${fin ? new Date(fin * 1000) : null}, verifie_le=now() where user_id=${qui.id} returning *`;
+      return m;
+    }
+  }
+  return c;
+}
+async function droits(qui: Qui, ip: string) {
+  const debutMois = new Date(); debutMois.setUTCDate(1); debutMois.setUTCHours(0, 0, 0, 0);
+  if (qui && ILLIMITES.has(qui.email)) return { offre: "fondateur", restantes: 999, connecte: true, email: qui.email };
+  if (qui) {
+    const c = await compte(qui);
+    if (["active", "trialing"].includes(c.statut)) {
+      const [{ n }] = await sql`select count(*)::int n from ineed_chantiers where user_id=${qui.id} and cree_le >= ${debutMois}`;
+      return { offre: "ultra", restantes: Math.max(0, OFFRE.ultra_mois - n), connecte: true, email: qui.email, fin_periode: c.fin_periode, resiliation: c.resiliation };
+    }
+  }
+  // Gratuit : 1 création offerte, comptée par compte et par appareil (adresse) sur 30 jours.
+  const [{ n }] = qui
+    ? await sql`select count(*)::int n from ineed_chantiers where (user_id=${qui.id} or ip_h=${ip}) and cree_le > now() - interval '30 days'`
+    : await sql`select count(*)::int n from ineed_chantiers where ip_h=${ip} and cree_le > now() - interval '30 days'`;
+  return { offre: "gratuite", restantes: Math.max(0, OFFRE.gratuites - n), connecte: !!qui, email: qui?.email || null };
 }
 
 /* ---------- moteurs ---------- */
@@ -281,6 +353,7 @@ Deno.serve(async (req) => {
   try {
     await schema();
     const ip = await ipHash(req);
+    const qui = await quiEst(req);
     const id = typeof b.id === "string" && /^[0-9a-f-]{36}$/i.test(b.id) ? b.id : null;
 
     if (b.action === "cadrer") {
@@ -303,11 +376,14 @@ Deno.serve(async (req) => {
         await t`select pg_advisory_xact_lock(hashtext(${cle + ordre}))`;
         const [deja] = await t`select id from ineed_chantiers where (cle_envoi=${cle} or ip_h=${ip}) and ordre=${ordre} and cree_le > now() - interval '60 seconds' order by cree_le limit 1`;
         if (deja) return { deja: deja.id };
+        const d = await droits(qui, ip);
+        if (d.restantes <= 0) return { offre: d };
         if (await limite(ip, "construire")) return { limite: true };
-        const [n] = await t`insert into ineed_chantiers(ip_h, cle_envoi, ordre, cadrage, reponses) values (${ip}, ${cle}, ${ordre}, ${t.json(b.cadrage || null)}, ${t.json(b.reponses || {})}) returning id`;
+        const [n] = await t`insert into ineed_chantiers(ip_h, cle_envoi, user_id, ordre, cadrage, reponses) values (${ip}, ${cle}, ${qui?.id || null}, ${ordre}, ${t.json(b.cadrage || null)}, ${t.json(b.reponses || {})}) returning id`;
         return { id: n.id };
       });
       if (res.deja) return json({ ok: true, id: res.deja, deja: true });
+      if (res.offre) return json({ erreur: res.offre.offre === "ultra" ? "Vous avez utilisé vos 30 créations du mois. Elles reviennent le 1er du mois." : "Votre création offerte est déjà utilisée. Passez à l'Ultra Premium pour continuer.", offre: true, droits: res.offre }, 402);
       if (res.limite) return json({ erreur: "L'atelier a atteint sa limite de constructions pour aujourd'hui. Revenez demain." }, 429);
       const c = { id: res.id };
       await journal(c.id, "plan", "Ordre reçu. L'atelier se met au travail.");
@@ -328,6 +404,77 @@ Deno.serve(async (req) => {
       const j = await r.json().catch(() => ({}));
       return json({ ok: r.ok, modeles: (j.data || []).map((m: any) => m.id), defaut: Deno.env.get("FLOVA_MODEL") || "deepseek-flash", fort: Deno.env.get("INEED_MODEL_FORT") || null, nvidia: !!Deno.env.get("NVIDIA_API_KEY") });
     }
+    if (b.action === "droits") return json({ ok: true, droits: await droits(qui, ip), prix: "99 € par mois, TVA comprise", creations_mois: OFFRE.ultra_mois });
+    if (b.action === "rattacher") { // garde dans « Mes projets » les créations faites avant la connexion
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      const ids = (Array.isArray(b.ids) ? b.ids : []).filter((x: unknown) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x as string)).slice(0, 50);
+      if (ids.length) await sql`update ineed_chantiers set user_id=${qui.id} where id = any(${ids}::uuid[]) and user_id is null`;
+      return json({ ok: true });
+    }
+    if (b.action === "projets") {
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      const l = await sql`select id, cree_le, maj_le, etape, note, coalesce(plan->>'nom', cadrage->>'titre', left(ordre, 60)) nom, left(ordre, 160) ordre
+        from ineed_chantiers where user_id=${qui.id} order by cree_le desc limit 100`;
+      return json({ ok: true, projets: l, droits: await droits(qui, ip) });
+    }
+    if (b.action === "abonner") {
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      const c = await compte(qui);
+      if (["active", "trialing"].includes(c.statut)) return json({ ok: true, deja: true });
+      const p: Record<string, string> = {
+        mode: "subscription", client_reference_id: qui.id, "metadata[user_id]": qui.id, "subscription_data[metadata][user_id]": qui.id, "subscription_data[metadata][produit]": "ineed-ultra",
+        success_url: SITE + "?paiement={CHECKOUT_SESSION_ID}", cancel_url: SITE + "?paiement=annule", locale: "fr",
+        "line_items[0][quantity]": "1", "line_items[0][price_data][currency]": "eur", "line_items[0][price_data][unit_amount]": String(OFFRE.prix_centimes),
+        "line_items[0][price_data][recurring][interval]": "month", "line_items[0][price_data][tax_behavior]": "inclusive",
+        "line_items[0][price_data][product_data][name]": "Ultra Premium — Atelier ineed", "line_items[0][price_data][product_data][description]": "30 créations par mois, retouches illimitées",
+        "automatic_tax[enabled]": "true", "tax_id_collection[enabled]": "true", billing_address_collection: "auto", allow_promotion_codes: "true",
+      };
+      if (c.stripe_client) p.customer = c.stripe_client; else p.customer_email = qui.email;
+      if (c.stripe_client) { p["customer_update[address]"] = "auto"; p["customer_update[name]"] = "auto"; }
+      if (ROBOT.test(qui.email)) { // contrôle de bout en bout sans argent réel : remise de 100 % sur le premier mois, sans carte
+        const cp = await stripe("/coupons", { percent_off: "100", duration: "once", name: "Contrôle robot ineed", max_redemptions: "1" });
+        if (cp.ok) { p["discounts[0][coupon]"] = cp.corps.id; delete p.allow_promotion_codes; p.payment_method_collection = "if_required"; }
+      }
+      let r = await stripe("/checkout/sessions", p);
+      if (!r.ok && /tax/i.test(r.corps?.error?.message || "")) { delete p["automatic_tax[enabled]"]; r = await stripe("/checkout/sessions", p); } // repli si la taxe automatique n'est pas prête
+      if (!r.ok) { console.error("stripe :", r.corps?.error?.message); return json({ erreur: "Le paiement n'est pas disponible pour le moment. Réessayez dans un instant." }, 502); }
+      return json({ ok: true, url: r.corps.url });
+    }
+    if (b.action === "confirmer") { // retour de la page de paiement : vérifié directement chez Stripe, aucune clé de réception nécessaire
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      const sid = String(b.session || "");
+      if (!/^cs_[A-Za-z0-9_]+$/.test(sid)) return json({ erreur: "session" }, 400);
+      const r = await stripe(`/checkout/sessions/${sid}?expand[]=subscription`, undefined, "GET");
+      const s2 = r.corps;
+      if (!r.ok || s2.client_reference_id !== qui.id) return json({ erreur: "Paiement introuvable." }, 404);
+      if (s2.status !== "complete" || !s2.subscription) return json({ ok: false, attente: true });
+      const sub = s2.subscription;
+      const fin = sub.current_period_end || sub.items?.data?.[0]?.current_period_end;
+      await sql`insert into ineed_comptes(user_id, email, stripe_client, abonnement, statut, fin_periode, verifie_le)
+        values (${qui.id}, ${qui.email}, ${s2.customer}, ${sub.id}, ${sub.status}, ${fin ? new Date(fin * 1000) : null}, now())
+        on conflict (user_id) do update set stripe_client=excluded.stripe_client, abonnement=excluded.abonnement, statut=excluded.statut,
+          fin_periode=excluded.fin_periode, resiliation=false, verifie_le=now()`;
+      return json({ ok: true, droits: await droits(qui, ip) });
+    }
+    if (b.action === "resilier" || b.action === "reprendre_abonnement") {
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      const c = await compte(qui);
+      if (!c.abonnement) return json({ erreur: "Aucun abonnement." }, 404);
+      const r = await stripe(`/subscriptions/${c.abonnement}`, { cancel_at_period_end: b.action === "resilier" ? "true" : "false" });
+      if (!r.ok) return json({ erreur: "Impossible pour le moment. Réessayez." }, 502);
+      await sql`update ineed_comptes set resiliation=${b.action === "resilier"}, verifie_le=null where user_id=${qui.id}`;
+      return json({ ok: true, droits: await droits(qui, ip) });
+    }
+    if (b.action === "lien_robot") { // connexion du robot de contrôle (adresses robot-…@ineed.shopping uniquement, jamais une vraie personne)
+      const email = String(b.email || "").toLowerCase();
+      if (!ROBOT.test(email)) return json({ erreur: "refusé" }, 403);
+      if (await limite(ip, "cadrer")) return json({ erreur: "limite" }, 429);
+      const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/generate_link`, { method: "POST", headers: { apikey: cleService(), Authorization: `Bearer ${cleService()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "magiclink", email, redirect_to: SITE }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return json({ erreur: "lien", detail: j?.msg || j?.error_description || r.status }, 502);
+      return json({ ok: true, lien: j.action_link || j.properties?.action_link });
+    }
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
@@ -336,8 +483,9 @@ Deno.serve(async (req) => {
       const consigne = String(b.consigne || "").trim().slice(0, 1500);
       if (consigne.length < 3) return json({ erreur: "consigne" }, 400);
       if (await limite(ip, "retoucher")) return json({ erreur: "Beaucoup de retouches aujourd'hui. Revenez demain." }, 429);
-      const [c] = await sql`select etape from ineed_chantiers where id=${id}`;
+      const [c] = await sql`select etape, user_id from ineed_chantiers where id=${id}`;
       if (!c || c.etape !== "livre") return json({ erreur: "Le produit n'est pas encore livré." }, 409);
+      if (c.user_id && c.user_id !== qui?.id) return json({ erreur: "Ce projet appartient à un autre compte. Connectez-vous avec le bon compte Google." }, 403);
       await journal(id, "retouche", `Retouche demandée : ${consigne.slice(0, 200)}`);
       lancer(retouche(id, consigne));
       return json({ ok: true });

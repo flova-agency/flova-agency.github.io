@@ -417,13 +417,22 @@ async function etape(id: string, suite: () => void) {
       await sql`update ineed_chantiers set cache_tente=true where id=${id}`;
       const mod = await chercherModele(c).catch((e) => { console.error("bibliothèque :", (e as Error).message); return null; });
       if (mod) {
-        const [m] = await sql`select html, plan, cout_usd from ineed_bibliotheque where id=${mod.id}`;
+        const [m] = await sql`select html, plan, cout_usd, note from ineed_bibliotheque where id=${mod.id}`;
         const r = await ia(SYS_PERSONNALISER, `${contexte}\n\nProduit validé à adapter :\n${m.html}`, { max: 6000, jsonMode: true, temp: 0.2 });
         const v = objet(r.texte) || {};
-        const a2 = appliquer(m.html, v.corrections);
-        const html = a2.html.split("{{NOM}}").join(String(v.nom || c.cadrage?.titre || ""));
+        // Chaque adaptation n'est gardée que si elle n'ajoute aucun défaut (ex. apostrophe qui casse un script).
+        const nom = String(v.nom || c.cadrage?.titre || "");
+        const sur = (h: string) => controle(h.split("{{NOM}}").join(nom.replace(/['"\\`]/g, "’"))).length;
+        let h0 = m.html, n0 = 0; const base = sur(h0);
+        for (const k of Array.isArray(v.corrections) ? v.corrections.slice(0, 60) : []) {
+          const t = appliquer(h0, [k]); if (!t.n) continue;
+          if (sur(t.html) <= base) { h0 = t.html; n0++; }
+        }
+        const a2 = { html: h0, n: n0 };
+        // le nom n'entre dans le code que sous une forme sans guillemet ni apostrophe droite
+        const html = a2.html.replace(/<script\b[\s\S]*?<\/script>/gi, (sc) => sc.split("{{NOM}}").join(nom.replace(/['"\\`]/g, "’"))).split("{{NOM}}").join(nom);
         if (a2.n > 0 && /<html/i.test(html)) {
-          await sql`update ineed_chantiers set plan=${sql.json({ ...(m.plan || {}), nom: v.nom || c.cadrage?.titre || "" })}, html=${html}, depuis_modele=${mod.id} where id=${id}`;
+          await sql`update ineed_chantiers set plan=${sql.json({ ...(m.plan || {}), nom: v.nom || c.cadrage?.titre || "" })}, html=${html}, depuis_modele=${mod.id}, note=${m.note || null} where id=${id}`;
           await sql`update ineed_bibliotheque set servi=servi+1 where id=${mod.id}`;
           await journal(id, "controle", `Servi depuis la bibliothèque (modèle ${String(mod.id).slice(0, 8)}, ressemblance ${Math.round(mod.score * 100)} %) : ${a2.n} adaptation(s). Coût réel ${r.cout.toFixed(4)} $, coût évité ≈ ${Math.max(0, Number(m.cout_usd) - r.cout).toFixed(4)} $.`, r.cout);
           return suite();
@@ -462,15 +471,21 @@ async function etape(id: string, suite: () => void) {
     // Contrôle : automatique puis relecture indépendante (qualité + direction artistique), trois tours au plus.
     const tour = c.tours + 1;
     const auto = controle(c.html);
+    if (c.depuis_modele && !auto.length) { // modèle déjà validé (≥ 90) et adaptation sans défaut : pas de relecture payante
+      await sql`update ineed_chantiers set tours=${tour}, versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: c.html }])} where id=${id}`;
+      await journal(id, "livre", `Livré. Note qualité ${c.note || "?"}/100 (modèle validé, contrôle automatique sans défaut). Servi depuis la bibliothèque : oui.`);
+      return;
+    }
     const r = await relecteur(SYS_RELIRE, `Plan et critères :\n${JSON.stringify(c.plan)}\n\nDéfauts du contrôle automatique : ${auto.length ? auto.join(" | ") : "aucun"}\n\nFichier livré :\n${c.html}`);
     const v = objet(r.texte) || {};
+    const lisible = Number.isFinite(Number(v.note)) && Number(v.note) > 0;
     const design = Number(v.design) || 0;
-    const note = Math.min(Number(v.note) || c.note || 0, design || 100);
+    const note = lisible ? Math.min(Number(v.note), design || 100) : (c.note || 0); // réponse illisible : on garde la note connue (modèle validé)
     const a = appliquer(c.html, v.corrections);
     const reste = controle(a.html);
     await sql`update ineed_chantiers set html=${a.html}, tours=${tour}, note=${note} where id=${id}`;
     await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
-    if (tour < 3 && (reste.length || (note < 85 && a.n > 0))) return suite();
+    if (tour < (c.depuis_modele ? 1 : 3) && (reste.length || (note < 85 && a.n > 0))) return suite();
     await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
     const [cc] = await sql`select * from ineed_chantiers where id=${id}`;
     const gm = await garderModele(cc, a.html, note).catch((e) => { console.error("garder modèle :", (e as Error).message); return null; });

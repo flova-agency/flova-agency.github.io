@@ -23,10 +23,16 @@ const ROUTEUR = "https://blaehmatdmobhwlhqfjo.supabase.co/rest/v1/rpc/";
 const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
 const MOTEURS_FLOVA = ["deepseek-flash"]; // moteurs dont Flova a la clé ; à élargir quand d'autres clés seront branchées
 // 24/11 (bus 109) : usine_choisir et usine_noter exigent le jeton de l'usine, rangé en secret USINE_JETON (jamais dans le code).
-const USINE_JETON = Deno.env.get("USINE_JETON") || "";
+// Le secret de fonction n'étant pas inscriptible par le déploiement, le jeton vit dans la base Flova (prive.secret, lisible par le serveur seul).
+let USINE_JETON = Deno.env.get("USINE_JETON") || "";
+async function jetonUsine(): Promise<string> {
+  if (USINE_JETON) return USINE_JETON;
+  try { const { data } = await admin().rpc("flova_jeton_usine"); USINE_JETON = typeof data === "string" ? data : ""; } catch { /* sans jeton : ancienne signature */ }
+  return USINE_JETON;
+}
 async function routeur(fn: string, corps: any): Promise<any> {
   try {
-    if (USINE_JETON && (fn === "usine_choisir" || fn === "usine_noter")) corps = { p_jeton: USINE_JETON, ...corps };
+    if (fn === "usine_choisir" || fn === "usine_noter") { const j = await jetonUsine(); if (j) corps = { p_jeton: j, ...corps }; }
     const r = await fetch(ROUTEUR + fn, { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify(corps), signal: AbortSignal.timeout(1500) });
     console.log(`routeur ${fn} ${r.status} jeton=${USINE_JETON && corps.p_jeton ? "oui" : "non"}`);
     return r.ok ? await r.json() : null;

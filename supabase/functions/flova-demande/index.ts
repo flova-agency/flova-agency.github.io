@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
       const { data: row, error } = await db.from("flova_messages").insert({ ...f, ip, test }).select("id").single();
       if (error) return json({ error: "Envoi impossible pour le moment." }, 500);
       let mailOk = false;
-      if (!test) {
+      const pourFlova = body.cible === "flova"; /* page Confidentialité de Flova : copie au fondateur seulement, jamais au propriétaire du site de démo */
+      if (!test && !pourFlova) {
         const { data: c } = await db.from("flova_content").select("data").eq("id", "site").maybeSingle();
         const { data: st } = await db.from("flova_settings").select("value").eq("key", "contact_email").maybeSingle();
         const to = String((c?.data as any)?.links?.email || st?.value || "").replace(/"/g, "");

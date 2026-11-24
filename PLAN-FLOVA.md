@@ -67,6 +67,15 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
 - [x] **32. Régression complète et gel à 10 h** — assistant, studio, démo, sécurité, tous verts sur la version en ligne. Preuve (20/11 à 9 h, version en ligne 67f56a7) : assistant 15/15, studio 49/49, démo 37/37, styles de la démo 2/2, formulaire 4/4, visites OK, sécurité anonyme 20/20 (étendue aux tables messages et visites). Code gelé : plus aucune modification avant la présentation.
 - [x] **33. PDF des nouveautés pour Karim avant 10 h 45.** Envoyé à 10 h 17 (5 pages, captures iPhone), copie dans le Drive (cerveau-apports, « Flova - nouveautés du 20-11 (11 h).pdf »).
 
+## Atelier ineed (ultra premium, demande 37 du 24/11)
+
+- [x] **A1. Atelier en ligne : ordre → QCM → produit fini** — Fait si : depuis un iPhone, une phrase donne 2 à 4 questions à toucher, puis un produit web complet livré avec un lien partageable, sans aucune erreur. Preuve : tests/… robot Playwright du 24/11 à 00 h 20 sur ineed.shopping/atelier, restaurant « Dar Zellige » livré en 84 s, retouche « titre en bleu foncé » faite en 7 s, page de partage voir.html OK, 0 erreur JavaScript.
+- [x] **A2. Chaîne robuste** — construction en flux continu par tranches de 45 s reprises automatiquement, reprise d'une étape coupée, anti double envoi, limites de dépense (12 fabrications par visiteur et 300 par jour). Preuve : chantier coupé à 39 Ko repris seul et livré ; double envoi simultané → un seul chantier.
+- [ ] **A3. Équipe multi-moteurs** — un moteur construit, un autre contrôle (NVIDIA ou Claude dès que la clé est dans les secrets de la fonction : NVIDIA_API_KEY + NVIDIA_MODEL), Gemini pour les images.
+- [ ] **A4. Comptes et offre 99 €** — connexion Google, mes projets, quota par offre, paiement Stripe Flova.
+- [ ] **A5. Mise en ligne sur un vrai domaine** — brancher flova-domaine : le produit livré part sur le domaine acheté par le client.
+- [ ] **A6. Contrôle visuel** — le contrôleur regarde le produit dans un vrai navigateur (capture) avant livraison.
+
 ## Liaison usine (J+2 à J+4)
 
 - [ ] **12. USINE_KEY et relève automatique depuis cerveau-1** — Fait si : une demande approuvée devient une fiche `usine/*`, la branche est relue et fusionnée par le pilote, la demande passe à « en ligne » et l'auteur reçoit le mail, le tout en moins d'une heure de bout en bout avec une demande test.

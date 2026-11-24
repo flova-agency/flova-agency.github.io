@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
       }
       let r = await stripe("/checkout/sessions", p);
       if (!r.ok && /tax/i.test(r.corps?.error?.message || "")) { delete p["automatic_tax[enabled]"]; r = await stripe("/checkout/sessions", p); } // repli si la taxe automatique n'est pas prête
-      if (!r.ok) { console.error("stripe :", r.corps?.error?.message); return json({ erreur: "Le paiement n'est pas disponible pour le moment. Réessayez dans un instant." }, 502); }
+      if (!r.ok) { console.error("stripe :", r.corps?.error?.message); return json({ erreur: "Le paiement n'est pas disponible pour le moment. Réessayez dans un instant.", detail: String(r.corps?.error?.message || "").slice(0, 200) }, 502); }
       return json({ ok: true, url: r.corps.url });
     }
     if (b.action === "confirmer") { // retour de la page de paiement : vérifié directement chez Stripe, aucune clé de réception nécessaire

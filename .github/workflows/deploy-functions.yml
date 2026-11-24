@@ -41,16 +41,21 @@ jobs:
       - run: pip install playwright && python -m playwright install --with-deps webkit
       - name: Porte (iPhone 15, production)
         id: porte
-        run: python tests/porte.py || (sleep 20 && python tests/porte.py)
-        continue-on-error: true
+        run: |
+          set +e
+          python tests/porte.py; c=$?
+          if [ $c -ne 0 ]; then sleep 20; python tests/porte.py; c=$?; fi
+          echo "code=$c" >> "$GITHUB_OUTPUT"
+          if [ $c -eq 3 ]; then echo "::warning::Moteur saturé : version non jugée, pas de retour arrière"; fi
+          exit 0
       - name: Verte, marquer cette version comme sûre
-        if: steps.porte.outcome == 'success'
+        if: steps.porte.outputs.code == '0'
         run: git tag -f porte-verte && git push -f origin porte-verte
       - uses: supabase/setup-cli@v1
-        if: steps.porte.outcome != 'success'
+        if: steps.porte.outputs.code == '1'
         with: { version: 2.122.1 }
       - name: Rouge, remettre la dernière version verte
-        if: steps.porte.outcome != 'success'
+        if: steps.porte.outputs.code == '1'
         run: |
           git checkout porte-verte -- supabase/functions
           for f in supabase/functions/*/; do

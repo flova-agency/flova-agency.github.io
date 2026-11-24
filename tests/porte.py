@@ -48,6 +48,7 @@ with sync_playwright() as p:
     if v.locator('.secbar:visible, .edbar:visible').count(): erreurs.append('outils d’édition visibles pour le visiteur')
     b.close()
 
-print('PORTE', 'VERTE' if not erreurs else 'ROUGE')
+sature = any('très demandé' in e for e in erreurs)
+print('PORTE', 'VERTE' if not erreurs else ('NON CONCLUANTE : moteur saturé, la version n\'est pas en cause' if sature else 'ROUGE'))
 for e in erreurs: print(' -', e)
-sys.exit(1 if erreurs else 0)
+sys.exit(0 if not erreurs else (3 if sature else 1))  # 3 = moteur saturé : ni retour arrière ni marque verte

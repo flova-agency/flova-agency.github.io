@@ -43,13 +43,13 @@ jobs:
         id: porte
         run: python tests/porte.py || (sleep 20 && python tests/porte.py)
         continue-on-error: true
-      - name: Verte : marquer cette version comme sûre
+      - name: Verte, marquer cette version comme sûre
         if: steps.porte.outcome == 'success'
         run: git tag -f porte-verte && git push -f origin porte-verte
       - uses: supabase/setup-cli@v1
         if: steps.porte.outcome != 'success'
         with: { version: 2.122.1 }
-      - name: Rouge : remettre la dernière version verte
+      - name: Rouge, remettre la dernière version verte
         if: steps.porte.outcome != 'success'
         run: |
           git checkout porte-verte -- supabase/functions

@@ -25,6 +25,7 @@ function schema() {
     alter table public.ineed_chantiers add column if not exists brouillon text;
     alter table public.ineed_chantiers add column if not exists tranches int not null default 0;
     alter table public.ineed_chantiers add column if not exists relances int not null default 0;
+    alter table public.ineed_chantiers add column if not exists cle_envoi text;
     create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
     create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
     alter table public.ineed_chantiers enable row level security;
@@ -296,12 +297,14 @@ Deno.serve(async (req) => {
       const ordre = String(b.ordre || "").trim().slice(0, 2000);
       if (ordre.length < 8) return json({ erreur: "ordre" }, 400);
       // Double envoi (double toucher) : le même ordre du même visiteur dans la minute renvoie le chantier déjà lancé, sans payer deux fois.
+      // Clé d'envoi fournie par la page (une par fabrication) ; à défaut, l'adresse du visiteur.
+      const cle = typeof b.cle === "string" && /^[0-9a-z-]{8,64}$/i.test(b.cle) ? b.cle : ip;
       const res = await sql.begin(async (t: any) => {
-        await t`select pg_advisory_xact_lock(hashtext(${ip + ordre}))`;
-        const [deja] = await t`select id from ineed_chantiers where ip_h=${ip} and ordre=${ordre} and cree_le > now() - interval '60 seconds' order by cree_le limit 1`;
+        await t`select pg_advisory_xact_lock(hashtext(${cle + ordre}))`;
+        const [deja] = await t`select id from ineed_chantiers where (cle_envoi=${cle} or ip_h=${ip}) and ordre=${ordre} and cree_le > now() - interval '60 seconds' order by cree_le limit 1`;
         if (deja) return { deja: deja.id };
         if (await limite(ip, "construire")) return { limite: true };
-        const [n] = await t`insert into ineed_chantiers(ip_h, ordre, cadrage, reponses) values (${ip}, ${ordre}, ${t.json(b.cadrage || null)}, ${t.json(b.reponses || {})}) returning id`;
+        const [n] = await t`insert into ineed_chantiers(ip_h, cle_envoi, ordre, cadrage, reponses) values (${ip}, ${cle}, ${ordre}, ${t.json(b.cadrage || null)}, ${t.json(b.reponses || {})}) returning id`;
         return { id: n.id };
       });
       if (res.deja) return json({ ok: true, id: res.deja, deja: true });

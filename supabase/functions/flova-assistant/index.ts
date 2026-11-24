@@ -470,9 +470,13 @@ async function traiter(req: Request): Promise<Response> {
     }
     await logUse(lastOut, count > 0);
     if (failed.length && !count) return json({ error: "La traduction n'a pas abouti. Réessaie dans un instant." }, 502);
-    const type = count ? "fait" : (["question", "hors_champ", "conseil", "audit"].includes(parsed.type) ? parsed.type : "question");
     const estQuestion = /\?\s*$|^\s*(quel|quelle|quels|quelles|combien|est-ce|c'est quoi|qu'est|où|ou est|sans rien changer)/i.test(instruction.normalize("NFC"));
     if (!count && parsed.type === "fait" && estQuestion && parsed.resume) parsed.type = "question";
+    // 24/11 régression : une demande de fonction hors portée (boutique, paiement, réservation…) n'est jamais une « question »
+    const horsPortee = /(paiement|payer|boutique en ligne|e-?commerce|panier|réservation|réserver|prise de rendez-vous|espace membre|nouvelle page|abonnement)/i.test(instruction) && !estQuestion;
+    if (!count && horsPortee && parsed.type !== "conseil") parsed.type = "hors_champ";
+    if (!count && parsed.type === "fait" && !estQuestion) { parsed.type = "hors_champ"; parsed.resume = "Je n'ai pas pu le faire directement ici : ta demande est notée pour être ajoutée. En attendant, dis-moi un texte, une couleur ou une section à changer et je le fais tout de suite."; }
+    const type = count ? "fait" : (["question", "hors_champ", "conseil", "audit"].includes(parsed.type) ? parsed.type : (estQuestion ? "question" : "hors_champ"));
     if (!count && parsed.type === "fait") parsed.resume = "Je n'ai rien trouvé à changer avec cette demande. Dis-moi plus précisément quoi modifier, ou touche une idée.";
     const choix = (Array.isArray(parsed.choix) ? parsed.choix : []).filter((c: unknown) => typeof c === "string" && c.trim()).slice(0, type === "audit" ? 5 : 3).map((c: string) => c.trim().slice(0, 90));
     if (type === "audit") {

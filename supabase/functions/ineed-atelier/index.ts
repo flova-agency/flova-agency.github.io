@@ -24,6 +24,7 @@ function schema() {
     alter table public.ineed_chantiers add column if not exists note int;
     alter table public.ineed_chantiers add column if not exists brouillon text;
     alter table public.ineed_chantiers add column if not exists tranches int not null default 0;
+    alter table public.ineed_chantiers add column if not exists relances int not null default 0;
     create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
     create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
     alter table public.ineed_chantiers enable row level security;
@@ -208,14 +209,14 @@ async function etape(id: string, suite: () => void) {
       return suite();
     }
     if (!c.html) {
-      // Construction par tranches de 100 s : le brouillon est gardé, l'appel suivant reprend exactement où il s'est arrêté.
+      // Construction par tranches de 45 s : le brouillon est gardé, l'appel suivant reprend exactement où il s'est arrêté.
       const debut = c.brouillon || "";
-      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: debut ? 8000 : 14000, fort: true, temp: 0.4, delaiMs: 100000, debut: debut || undefined,
+      const r = await ia(SYS_CONSTRUIRE, `${contexte}\n\nPlan à réaliser :\n${JSON.stringify(c.plan)}`, { max: debut ? 8000 : 14000, fort: true, temp: 0.4, delaiMs: 45000, debut: debut || undefined,
         progres: (t) => sql`update ineed_chantiers set maj_le=now(), journal = journal || ${sql.json([{ le: new Date().toISOString(), etape: "construction", texte: `Construction en cours : ${Math.round((debut.length + t.length) / 1024)} Ko écrits.` }])}, brouillon=${debut + t} where id=${id}` });
       const tout = debut + r.texte;
       const termine = r.fini || /<\/html>\s*(```)?\s*$/i.test(tout);
       if (!termine) {
-        if (c.tranches >= 6) throw new Error("construction trop longue");
+        if (c.tranches >= 12) throw new Error("construction trop longue");
         await sql`update ineed_chantiers set brouillon=${tout}, tranches=tranches+1 where id=${id}`;
         await journal(id, "construction", `Construction en cours : ${Math.round(tout.length / 1024)} Ko écrits.`, r.cout);
         return suite();
@@ -303,7 +304,7 @@ Deno.serve(async (req) => {
       const [c] = await sql`select etape, (plan is not null) a_plan, (html is not null) a_html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
       if (c.etape !== "panne") return json({ ok: true });
-      await sql`update ineed_chantiers set erreur=null, tranches=0 where id=${id}`;
+      await sql`update ineed_chantiers set erreur=null, tranches=0, relances=0 where id=${id}`;
       await journal(id, c.a_html ? "controle" : c.a_plan ? "construction" : "plan", "Reprise demandée : l'atelier repart de la dernière étape réussie.");
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
@@ -331,10 +332,11 @@ Deno.serve(async (req) => {
       const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, jsonb_array_length(versions) nv,
         case when ${!!b.html} then html end html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
-      // Une étape bloquée plus de 6 minutes (exécution coupée) est signalée en panne pour pouvoir reprendre.
-      if (!["livre", "panne"].includes(c.etape) && Date.now() - new Date(c.maj_le).getTime() > 360000) {
-        await journal(id, "panne", "L'étape a pris trop de temps. Touchez « Reprendre ».");
-        c.etape = "panne";
+      // Une étape muette depuis plus de 70 s (exécution coupée par la plateforme) repart toute seule, 6 fois au plus.
+      if (!["livre", "panne", "retouche"].includes(c.etape) && Date.now() - new Date(c.maj_le).getTime() > 70000) {
+        const [r] = await sql`update ineed_chantiers set relances=relances+1, maj_le=now() where id=${id} and maj_le < now() - interval '70 seconds' returning relances`;
+        if (r && r.relances <= 6) { lancer(etape(id, relanceur(req, id))); }
+        else if (r) { await journal(id, "panne", "L'étape a calé plusieurs fois. Touchez « Reprendre »."); c.etape = "panne"; }
       }
       return json({ ok: true, chantier: { ...c, cout_usd: Number(c.cout_usd) } });
     }

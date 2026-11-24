@@ -384,7 +384,9 @@ function anonymiser(html: string, c: any) {
   if (c.plan?.nom) prives.add(String(c.plan.nom));
   const texte = `${c.ordre} ${JSON.stringify(c.reponses || {})}`;
   for (const m of texte.match(/\b[A-ZÀ-Ý][\wÀ-ÿ'’-]{2,}(?:\s+[A-ZÀ-Ý][\wÀ-ÿ'’-]{2,})*/g) || []) prives.add(m); // noms propres tapés par le client
-  for (const n of [...prives].sort((x, y) => y.length - x.length)) if (n.length > 2) h = h.split(n).join("{{NOM}}");
+  const echap = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const n of [...prives].sort((x, y) => y.length - x.length)) if (n.length > 2)
+    h = h.replace(new RegExp(`(?<![\\p{L}\\p{N}_$])${echap(n)}(?![\\p{L}\\p{N}_$])`, "gu"), "{{NOM}}"); // mot entier seulement : jamais dans un nom de fonction
   h = h.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "contact@exemple.com").replace(/(\+?\d[\d .\/-]{7,}\d)/g, "+32 400 00 00 00")
        .replace(/https?:\/\/(?!fonts\.)[^"'\s)]+/g, "#");
   return h;
@@ -392,17 +394,21 @@ function anonymiser(html: string, c: any) {
 async function garderModele(c: any, html: string, note: number) {
   if (note < 90 || c.depuis_modele) return null;
   const h = anonymiser(html, c);
+  if (controle(h.split("{{NOM}}").join("Nom")).length) { console.error("modèle refusé : l'anonymisation casse le code"); return null; }
   const [m] = await sql`insert into ineed_bibliotheque(chantier, genre, metier, langue, demande, mots, plan, html, cout_usd, note)
     values (${c.id}, ${c.cadrage?.genre || null}, ${c.plan?.metier || c.cadrage?.titre || null}, ${c.plan?.langue || "fr"}, ${anonymiser(c.ordre, c).slice(0, 500)},
-      ${mots(c.ordre + " " + (c.cadrage?.titre || ""))}, ${sql.json({ ...(c.plan || {}), nom: "{{NOM}}" })}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
+      ${mots(c.ordre + " " + (c.cadrage?.titre || ""))}, ${sql.json((() => { try { return JSON.parse(anonymiser(JSON.stringify({ ...(c.plan || {}), nom: "{{NOM}}" }), c)); } catch { return { nom: "{{NOM}}" }; } })())}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
   return m?.id || null;
 }
 async function chercherModele(c: any) {
   const m = mots(c.ordre + " " + (c.cadrage?.titre || ""));
   const l = await sql`select id, mots, cout_usd from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) order by cree_le desc limit 300`;
-  let mieux: any = null, s = 0;
-  for (const x of l) { const v = proche(m, x.mots); if (v > s) { s = v; mieux = x; } }
-  return s >= 0.5 ? { ...mieux, score: s } : null;
+  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score);
+  for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
+    const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
+    if (!controle(String(h?.html || "").split("{{NOM}}").join("Nom")).length) return x;
+  }
+  return null;
 }
 const SYS_PERSONNALISER = `Tu es le développeur de l'atelier ineed.shopping. Tu reçois un produit déjà validé (HTML, anonymisé : {{NOM}} marque le nom du client précédent, coordonnées remplacées) et la demande d'un NOUVEAU client du même métier.
 Adapte-le à ce nouveau client par remplacements ciblés : son nom à la place de {{NOM}}, ses textes, sa ville, ses prestations, ses couleurs si demandées. Garde la structure, le design et le code qui fonctionnent. Ne laisse aucun {{NOM}}.
@@ -431,8 +437,8 @@ async function etape(id: string, suite: () => void) {
         const a2 = { html: h0, n: n0 };
         // le nom n'entre dans le code que sous une forme sans guillemet ni apostrophe droite
         const html = a2.html.replace(/<script\b[\s\S]*?<\/script>/gi, (sc) => sc.split("{{NOM}}").join(nom.replace(/['"\\`]/g, "’"))).split("{{NOM}}").join(nom);
-        if (a2.n > 0 && /<html/i.test(html)) {
-          await sql`update ineed_chantiers set plan=${sql.json({ ...(m.plan || {}), nom: v.nom || c.cadrage?.titre || "" })}, html=${html}, depuis_modele=${mod.id}, note=${m.note || null} where id=${id}`;
+        if (a2.n > 0 && /<html/i.test(html) && !html.includes("{{NOM}}")) {
+          await sql`update ineed_chantiers set plan=${sql.json({ nom: v.nom || c.cadrage?.titre || "", resume: c.cadrage?.resume || "", genre: c.cadrage?.genre || "", criteres: (m.plan?.criteres || []), style: (m.plan?.style || {}) })}, html=${html}, depuis_modele=${mod.id}, note=${m.note || null} where id=${id}`;
           await sql`update ineed_bibliotheque set servi=servi+1 where id=${mod.id}`;
           await journal(id, "controle", `Servi depuis la bibliothèque (modèle ${String(mod.id).slice(0, 8)}, ressemblance ${Math.round(mod.score * 100)} %) : ${a2.n} adaptation(s). Coût réel ${r.cout.toFixed(4)} $, coût évité ≈ ${Math.max(0, Number(m.cout_usd) - r.cout).toFixed(4)} $.`, r.cout);
           return suite();

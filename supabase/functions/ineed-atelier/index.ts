@@ -77,6 +77,8 @@ async function limite(ip: string, action: keyof typeof LIM) {
 // Offres (décisions de Karim du 24/11/2026) : 1 création offerte, puis Ultra Premium à 99 €/mois = 30 créations par mois, retouches illimitées.
 const OFFRE = { gratuites: 1, ultra_mois: 30, prix_centimes: 9900 };
 const ILLIMITES = new Set(["elbazikarim@gmail.com"]); // le fondateur teste sans payer
+// Empreinte (sha256) du jeton de publication rangé dans le coffre de l'usine (amd_config flova_publication_jeton) — jamais la valeur.
+const PUBLICATION_EMPREINTE = "879be0445fff8b3baba810a3821393cbef2d0fed3b24ebaccbc78bf2f2cd7e79";
 const ROBOT = /^robot-[a-z0-9]{4,20}@ineed\.shopping$/; // comptes de test du robot de contrôle
 const SITE = "https://ineed.shopping/atelier/";
 function cleService() {
@@ -394,7 +396,7 @@ function anonymiser(html: string, c: any) {
 // Un modèle est cassé si le repère {{NOM}} colle à un nom de code, ou si le code ne passe plus avec un nom à espace et apostrophe.
 function modeleCasse(h: string) { return /[\w$]\{\{NOM\}\}|\{\{NOM\}\}[\w$]/.test(h) || controle(h.split("{{NOM}}").join("Le Nom d’Essai")).length > 0; }
 async function garderModele(c: any, html: string, note: number) {
-  if (note < 90 || c.depuis_modele) return null;
+  if (note < 85 || c.depuis_modele) return null; // bus 144 : seuil d'entrée 85
   const h = anonymiser(html, c);
   if (modeleCasse(h)) { console.error("modèle refusé : l'anonymisation casse le code"); return null; }
   const [m] = await sql`insert into ineed_bibliotheque(chantier, genre, metier, langue, demande, mots, plan, html, cout_usd, note)
@@ -479,21 +481,21 @@ async function etape(id: string, suite: () => void) {
     // Contrôle : automatique puis relecture indépendante (qualité + direction artistique), trois tours au plus.
     const tour = c.tours + 1;
     const auto = controle(c.html);
-    if (c.depuis_modele && !auto.length) { // modèle déjà validé (≥ 90) et adaptation sans défaut : pas de relecture payante
-      await sql`update ineed_chantiers set tours=${tour}, versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: c.html }])} where id=${id}`;
-      await journal(id, "livre", `Livré. Note qualité ${c.note || "?"}/100 (modèle validé, contrôle automatique sans défaut). Servi depuis la bibliothèque : oui.`);
-      return;
-    }
     const r = await relecteur(SYS_RELIRE, `Plan et critères :\n${JSON.stringify(c.plan)}\n\nDéfauts du contrôle automatique : ${auto.length ? auto.join(" | ") : "aucun"}\n\nFichier livré :\n${c.html}`);
     const v = objet(r.texte) || {};
     const lisible = Number.isFinite(Number(v.note)) && Number(v.note) > 0;
     const design = Number(v.design) || 0;
-    const note = lisible ? Math.min(Number(v.note), design || 100) : (c.note || 0); // réponse illisible : on garde la note connue (modèle validé)
+    const note = lisible ? Math.min(Number(v.note), design || 100) : (c.depuis_modele ? 0 : (c.note || 0)); // un site tiré d'un modèle doit être vraiment relu // réponse illisible : on garde la note connue (modèle validé)
     const a = appliquer(c.html, v.corrections);
     const reste = controle(a.html);
     await sql`update ineed_chantiers set html=${a.html}, tours=${tour}, note=${note} where id=${id}`;
     await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
     if (tour < (c.depuis_modele ? 1 : 3) && (reste.length || (note < 85 && a.n > 0))) return suite();
+    if (c.depuis_modele && (note < 90 || reste.length)) { // bus 144 : un site tiré d'un modèle doit lui-même obtenir ≥ 90, sinon fabrication neuve
+      await sql`update ineed_chantiers set plan=null, html=null, depuis_modele=null, tours=0, note=null where id=${id}`;
+      await journal(id, "construction", `Adaptation du modèle notée ${note}/100 (< 90) : l'atelier repart sur une fabrication neuve.`);
+      return suite();
+    }
     await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
     const [cc] = await sql`select * from ineed_chantiers where id=${id}`;
     const gm = await garderModele(cc, a.html, note).catch((e) => { console.error("garder modèle :", (e as Error).message); return null; });
@@ -660,6 +662,18 @@ Deno.serve(async (req) => {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return json({ erreur: "lien", detail: j?.msg || j?.error_description || r.status }, 502);
       return json({ ok: true, lien: j.action_link || j.properties?.action_link });
+    }
+    if (b.action === "sites_publies") { // bus 156 : publication en TIRÉ — usine-2 lit la liste chaque minute et publie <nom>.ineed.shopping
+      const j = req.headers.get("x-ineed-jeton") || "";
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");
+      if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
+      const depuis = typeof b.depuis === "string" && !isNaN(Date.parse(b.depuis)) ? b.depuis : "1970-01-01";
+      const avecHtml = b.html !== false;
+      const l = await sql`select c.slug, c.maj_le, c.etape, ${avecHtml ? sql`c.html` : sql`null::text as html`}
+        from ineed_chantiers c left join auth.users u on u.id = c.user_id
+        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and coalesce(u.email, '') !~ '^robot-'
+        order by c.maj_le limit 200`;
+      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, etat: x.etape === "livre" && x.html ? "en_ligne" : "retire" })) });
     }
     if (b.action === "par_slug") { // beau lien : ineed.shopping/p/<nom>
       const sl = String(b.slug || "").toLowerCase();

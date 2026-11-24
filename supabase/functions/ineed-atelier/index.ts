@@ -295,8 +295,18 @@ Deno.serve(async (req) => {
     if (b.action === "construire") {
       const ordre = String(b.ordre || "").trim().slice(0, 2000);
       if (ordre.length < 8) return json({ erreur: "ordre" }, 400);
-      if (await limite(ip, "construire")) return json({ erreur: "L'atelier a atteint sa limite de constructions pour aujourd'hui. Revenez demain." }, 429);
-      const [c] = await sql`insert into ineed_chantiers(ip_h, ordre, cadrage, reponses) values (${ip}, ${ordre}, ${sql.json(b.cadrage || null)}, ${sql.json(b.reponses || {})}) returning id`;
+      // Double envoi (double toucher) : le même ordre du même visiteur dans la minute renvoie le chantier déjà lancé, sans payer deux fois.
+      const res = await sql.begin(async (t: any) => {
+        await t`select pg_advisory_xact_lock(hashtext(${ip + ordre}))`;
+        const [deja] = await t`select id from ineed_chantiers where ip_h=${ip} and ordre=${ordre} and cree_le > now() - interval '60 seconds' order by cree_le limit 1`;
+        if (deja) return { deja: deja.id };
+        if (await limite(ip, "construire")) return { limite: true };
+        const [n] = await t`insert into ineed_chantiers(ip_h, ordre, cadrage, reponses) values (${ip}, ${ordre}, ${t.json(b.cadrage || null)}, ${t.json(b.reponses || {})}) returning id`;
+        return { id: n.id };
+      });
+      if (res.deja) return json({ ok: true, id: res.deja, deja: true });
+      if (res.limite) return json({ erreur: "L'atelier a atteint sa limite de constructions pour aujourd'hui. Revenez demain." }, 429);
+      const c = { id: res.id };
       await journal(c.id, "plan", "Ordre reçu. L'atelier se met au travail.");
       lancer(etape(c.id, relanceur(req, c.id)));
       return json({ ok: true, id: c.id });

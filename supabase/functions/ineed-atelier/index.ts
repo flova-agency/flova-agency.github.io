@@ -174,12 +174,13 @@ Règles :
 - Mobile d'abord (largeur 360 px sans défilement horizontal), parfait aussi sur ordinateur ; finition soignée (espacements, ombres légères, transitions, états vides, retours visuels après chaque action).
 - Toutes les fonctions du plan marchent vraiment ; données dans localStorage (try/catch autour de chaque accès), données d'exemple réalistes au premier lancement, bouton pour réinitialiser.
 - Aucune fenêtre alert/confirm/prompt : utiliser des messages intégrés à la page.
-- Accessibilité : contrastes suffisants, boutons d'au moins 44 px, libellés clairs.
+- Accessibilité : contrastes suffisants dans TOUS les états (onglet actif et inactif, survol, fond sombre et clair : jamais de texte blanc sur fond blanc), boutons d'au moins 44 px, libellés clairs.
+- Aucun mot technique dans l'interface (pas de « JSON », « localStorage », « données »), parler comme à un client : « Sauvegarder mes devis », « Récupérer une sauvegarde ».
 - Petite mention discrète en pied de page : « Créé avec ineed.shopping ».
 - Code complet : aucun « … », aucun TODO, aucune fonction vide.`;
 
 const SYS_RELIRE = `Tu es le contrôleur qualité de l'atelier ineed.shopping, indépendant du développeur. Tu reçois le plan, les critères et le fichier HTML livré, plus les défauts trouvés par le contrôle automatique.
-Vérifie chaque critère et cherche les bogues (fonction appelée mais absente, bouton sans effet, élément introuvable par son id, données non sauvegardées, débordement sur téléphone).
+Vérifie chaque critère et cherche les bogues (texte invisible car de même couleur que son fond dans un état actif ou inactif, mot technique visible par le client, fonction appelée mais absente, bouton sans effet, élément introuvable par son id, données non sauvegardées, débordement sur téléphone).
 Corrige par des remplacements exacts : "chercher" doit être un extrait copié à l'identique du fichier (assez long pour être unique), "remplacer" le nouveau texte.
 Réponds en JSON : {"note": 0-100, "criteres_ok": nombre, "defauts": ["…"], "corrections": [{"chercher":"…","remplacer":"…"}]}`;
 

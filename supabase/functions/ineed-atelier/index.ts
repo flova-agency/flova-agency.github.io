@@ -391,10 +391,12 @@ function anonymiser(html: string, c: any) {
        .replace(/https?:\/\/(?!fonts\.)[^"'\s)]+/g, "#");
   return h;
 }
+// Un modèle est cassé si le repère {{NOM}} colle à un nom de code, ou si le code ne passe plus avec un nom à espace et apostrophe.
+function modeleCasse(h: string) { return /[\w$]\{\{NOM\}\}|\{\{NOM\}\}[\w$]/.test(h) || controle(h.split("{{NOM}}").join("Le Nom d’Essai")).length > 0; }
 async function garderModele(c: any, html: string, note: number) {
   if (note < 90 || c.depuis_modele) return null;
   const h = anonymiser(html, c);
-  if (controle(h.split("{{NOM}}").join("Nom")).length) { console.error("modèle refusé : l'anonymisation casse le code"); return null; }
+  if (modeleCasse(h)) { console.error("modèle refusé : l'anonymisation casse le code"); return null; }
   const [m] = await sql`insert into ineed_bibliotheque(chantier, genre, metier, langue, demande, mots, plan, html, cout_usd, note)
     values (${c.id}, ${c.cadrage?.genre || null}, ${c.plan?.metier || c.cadrage?.titre || null}, ${c.plan?.langue || "fr"}, ${anonymiser(c.ordre, c).slice(0, 500)},
       ${mots(c.ordre + " " + (c.cadrage?.titre || ""))}, ${sql.json((() => { try { return JSON.parse(anonymiser(JSON.stringify({ ...(c.plan || {}), nom: "{{NOM}}" }), c)); } catch { return { nom: "{{NOM}}" }; } })())}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
@@ -406,7 +408,7 @@ async function chercherModele(c: any) {
   const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score);
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
     const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
-    if (!controle(String(h?.html || "").split("{{NOM}}").join("Nom")).length) return x;
+    if (!modeleCasse(String(h?.html || ""))) return x;
   }
   return null;
 }

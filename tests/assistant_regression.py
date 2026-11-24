@@ -11,7 +11,9 @@ CAS = [
   ("Ajoute nos vues totales dans les chiffres", None, "periode"),                                           # 19/11 : il changeait la portée du 30 M+
   ("Mets le fond en rouge", "fait", "rouge"),                                                               # 20/11 : Karim trouvait l'assistant trop limité (design refusé)
   ("Change la police du site", "fait", None),
-  ("Ajoute une boutique en ligne avec paiement", "hors_champ", None),
+  ("Ajoute une boutique en ligne avec paiement", "hors_champ", None),              # 24/11 : classée « question » (type calculé avant les corrections)
+  ("Ajoute un système de réservation", "hors_champ", None),
+  ("Quel est le titre de la page ?", "question", None),
   ("Traduis tout le site en anglais", "fait", "bilingue"),                                                # 20/11 : la traduction écrasait le français
   ("Remets les couleurs d'origine", None, None),
   ("Ajoute un client : Boulangerie Saïd", "fait", None),
@@ -21,12 +23,12 @@ def run():
     with sync_playwright() as p:
         b = p.webkit.launch(); pg = b.new_context(**p.devices['iPhone 15']).new_page()
         for dem, attendu, ctl in CAS:
-            pg.goto('https://flovaagency.com/demo?v=%d' % time.time()); pg.wait_for_timeout(2500); pg.click('#skip'); pg.wait_for_timeout(2800)
+            pg.goto('https://ineed.shopping/?v=%d' % time.time()); pg.wait_for_timeout(2500); pg.evaluate("document.querySelector('#skip')?.click()"); pg.wait_for_timeout(2800)  # 24/11 : la démo vit sur ineed.shopping
             n0 = pg.evaluate("document.querySelectorAll('#msgs .b.in').length")
             pg.fill('#txt', dem); pg.click('#go')
             pg.wait_for_function(f"document.querySelectorAll('#msgs .b.in').length > {n0} && !document.querySelector('#msgs .typing')", timeout=120000); pg.wait_for_timeout(1200)
             rep = pg.evaluate("[...document.querySelectorAll('#msgs .b.in')].pop().innerText")
-            fait = rep.startswith('✓'); hors = 'Dans la vraie version' in rep
+            fait = rep.startswith('✓'); hors = ('C’est noté' in rep) or ("C'est noté" in rep) or ('Dans la vraie version' in rep)
             typ = 'fait' if fait else ('hors_champ' if hors else 'question')
             err = []
             if attendu and typ != attendu: err.append(f'type {typ} au lieu de {attendu}')

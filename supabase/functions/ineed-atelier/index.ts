@@ -27,6 +27,12 @@ function schema() {
     alter table public.ineed_chantiers add column if not exists relances int not null default 0;
     alter table public.ineed_chantiers add column if not exists cle_envoi text;
     alter table public.ineed_chantiers add column if not exists user_id uuid;
+    alter table public.ineed_chantiers add column if not exists depuis_modele uuid;
+    alter table public.ineed_chantiers add column if not exists cache_tente boolean not null default false;
+    create table if not exists public.ineed_bibliotheque(
+      id uuid primary key default gen_random_uuid(), cree_le timestamptz not null default now(), chantier uuid, genre text, metier text, langue text,
+      demande text not null, mots text[] not null default '{}', plan jsonb, html text not null, cout_usd numeric not null default 0, note int, servi int not null default 0);
+    alter table public.ineed_bibliotheque enable row level security;
     create index if not exists ineed_chantiers_user on public.ineed_chantiers(user_id, cree_le desc);
     create index if not exists ineed_chantiers_ip on public.ineed_chantiers(ip_h, cree_le desc);
     create table if not exists public.ineed_comptes(
@@ -366,11 +372,63 @@ async function journal(id: string, etape: string, texte: string, cout = 0) {
     journal = journal || ${sql.json([{ le: new Date().toISOString(), etape, texte }])} where id=${id}`;
 }
 // Une étape par appel : chaque étape a ainsi tout le temps d'exécution d'un appel, puis l'atelier se relance lui-même.
+/* ---------- bibliothèque de modèles (bus 123) : un site validé (note ≥ 90) est gardé anonymisé, et sert de point de départ à une demande équivalente ---------- */
+const VIDES = new Set("pour avec dans une des les mon mes son ses sur par qui que est sont pas plus tout tous mais aussi votre vous nous leur aux du de la le un et ou en au a je veux faire site page application outil".split(" "));
+function mots(t: string) { return [...new Set((t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter((m) => m.length > 2 && !VIDES.has(m)))]; }
+function proche(a: string[], b: string[]) { if (!a.length || !b.length) return 0; const B = new Set(b); const n = a.filter((m) => B.has(m)).length; return n / Math.min(a.length, b.length); }
+function anonymiser(html: string, c: any) {
+  let h = html;
+  const prives = new Set<string>();
+  if (c.plan?.nom) prives.add(String(c.plan.nom));
+  const texte = `${c.ordre} ${JSON.stringify(c.reponses || {})}`;
+  for (const m of texte.match(/\b[A-ZÀ-Ý][\wÀ-ÿ'’-]{2,}(?:\s+[A-ZÀ-Ý][\wÀ-ÿ'’-]{2,})*/g) || []) prives.add(m); // noms propres tapés par le client
+  for (const n of [...prives].sort((x, y) => y.length - x.length)) if (n.length > 2) h = h.split(n).join("{{NOM}}");
+  h = h.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "contact@exemple.com").replace(/(\+?\d[\d .\/-]{7,}\d)/g, "+32 400 00 00 00")
+       .replace(/https?:\/\/(?!fonts\.)[^"'\s)]+/g, "#");
+  return h;
+}
+async function garderModele(c: any, html: string, note: number) {
+  if (note < 90 || c.depuis_modele) return null;
+  const h = anonymiser(html, c);
+  const [m] = await sql`insert into ineed_bibliotheque(chantier, genre, metier, langue, demande, mots, plan, html, cout_usd, note)
+    values (${c.id}, ${c.cadrage?.genre || null}, ${c.plan?.metier || c.cadrage?.titre || null}, ${c.plan?.langue || "fr"}, ${anonymiser(c.ordre, c).slice(0, 500)},
+      ${mots(c.ordre + " " + (c.cadrage?.titre || ""))}, ${sql.json({ ...(c.plan || {}), nom: "{{NOM}}" })}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
+  return m?.id || null;
+}
+async function chercherModele(c: any) {
+  const m = mots(c.ordre + " " + (c.cadrage?.titre || ""));
+  const l = await sql`select id, mots, cout_usd from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) order by cree_le desc limit 300`;
+  let mieux: any = null, s = 0;
+  for (const x of l) { const v = proche(m, x.mots); if (v > s) { s = v; mieux = x; } }
+  return s >= 0.5 ? { ...mieux, score: s } : null;
+}
+const SYS_PERSONNALISER = `Tu es le développeur de l'atelier ineed.shopping. Tu reçois un produit déjà validé (HTML, anonymisé : {{NOM}} marque le nom du client précédent, coordonnées remplacées) et la demande d'un NOUVEAU client du même métier.
+Adapte-le à ce nouveau client par remplacements ciblés : son nom à la place de {{NOM}}, ses textes, sa ville, ses prestations, ses couleurs si demandées. Garde la structure, le design et le code qui fonctionnent. Ne laisse aucun {{NOM}}.
+Réponds en JSON : {"nom": "nom du produit", "corrections": [{"chercher":"texte exact présent dans le fichier","remplacer":"nouveau texte"}]}`;
+
 async function etape(id: string, suite: () => void) {
   const [c] = await sql`select * from ineed_chantiers where id=${id}`;
   if (!c || ["livre", "panne"].includes(c.etape)) return;
   try {
     const contexte = `Ordre du client : ${c.ordre}\n\nCe que le chef de projet a compris : ${JSON.stringify(c.cadrage)}\n\nRéponses du client aux questions : ${JSON.stringify(c.reponses)}`;
+    if (!c.plan && !c.cache_tente) {
+      await sql`update ineed_chantiers set cache_tente=true where id=${id}`;
+      const mod = await chercherModele(c).catch((e) => { console.error("bibliothèque :", (e as Error).message); return null; });
+      if (mod) {
+        const [m] = await sql`select html, plan, cout_usd from ineed_bibliotheque where id=${mod.id}`;
+        const r = await ia(SYS_PERSONNALISER, `${contexte}\n\nProduit validé à adapter :\n${m.html}`, { max: 6000, jsonMode: true, temp: 0.2 });
+        const v = objet(r.texte) || {};
+        const a2 = appliquer(m.html, v.corrections);
+        const html = a2.html.split("{{NOM}}").join(String(v.nom || c.cadrage?.titre || ""));
+        if (a2.n > 0 && /<html/i.test(html)) {
+          await sql`update ineed_chantiers set plan=${sql.json({ ...(m.plan || {}), nom: v.nom || c.cadrage?.titre || "" })}, html=${html}, depuis_modele=${mod.id} where id=${id}`;
+          await sql`update ineed_bibliotheque set servi=servi+1 where id=${mod.id}`;
+          await journal(id, "controle", `Servi depuis la bibliothèque (modèle ${String(mod.id).slice(0, 8)}, ressemblance ${Math.round(mod.score * 100)} %) : ${a2.n} adaptation(s). Coût réel ${r.cout.toFixed(4)} $, coût évité ≈ ${Math.max(0, Number(m.cout_usd) - r.cout).toFixed(4)} $.`, r.cout);
+          return suite();
+        }
+        await journal(id, "construction", "Modèle trouvé mais non adaptable : fabrication complète.", r.cout);
+      }
+    }
     if (!c.plan) {
       let r = await ia(SYS_PLAN, contexte, { max: 8000, jsonMode: true });
       let plan = objet(r.texte);
@@ -412,7 +470,9 @@ async function etape(id: string, suite: () => void) {
     await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
     if (tour < 3 && (reste.length || (note < 85 && a.n > 0))) return suite();
     await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
-    await journal(id, "livre", `Livré. Note qualité ${note}/100.`);
+    const [cc] = await sql`select * from ineed_chantiers where id=${id}`;
+    const gm = await garderModele(cc, a.html, note).catch((e) => { console.error("garder modèle :", (e as Error).message); return null; });
+    await journal(id, "livre", `Livré. Note qualité ${note}/100.${cc.depuis_modele ? " Servi depuis la bibliothèque : oui." : " Servi depuis la bibliothèque : non."}${gm ? ` Gardé comme modèle (fiche ${String(gm).slice(0, 8)}).` : ""}`);
   } catch (e) {
     await sql`update ineed_chantiers set erreur=${String((e as Error).message).slice(0, 300)}, maj_le=now() where id=${id}`;
     await journal(id, "panne", "Une étape a échoué. Touchez « Reprendre » : l'atelier repart de la dernière étape réussie.");

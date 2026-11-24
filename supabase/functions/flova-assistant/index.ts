@@ -22,9 +22,13 @@ function admin() {
 const ROUTEUR = "https://blaehmatdmobhwlhqfjo.supabase.co/rest/v1/rpc/";
 const ROUTEUR_CLE = "sb_publishable_c1ovcVD1pbOGPedrJfDU3g_jtS1bY73";
 const MOTEURS_FLOVA = ["deepseek-flash"]; // moteurs dont Flova a la clé ; à élargir quand d'autres clés seront branchées
-async function routeur(fn: string, corps: unknown): Promise<any> {
+// 24/11 (bus 109) : usine_choisir et usine_noter exigent le jeton de l'usine, rangé en secret USINE_JETON (jamais dans le code).
+const USINE_JETON = Deno.env.get("USINE_JETON") || "";
+async function routeur(fn: string, corps: any): Promise<any> {
   try {
+    if (USINE_JETON && (fn === "usine_choisir" || fn === "usine_noter")) corps = { p_jeton: USINE_JETON, ...corps };
     const r = await fetch(ROUTEUR + fn, { method: "POST", headers: { apikey: ROUTEUR_CLE, "Content-Type": "application/json" }, body: JSON.stringify(corps), signal: AbortSignal.timeout(1500) });
+    console.log(`routeur ${fn} ${r.status} jeton=${USINE_JETON && corps.p_jeton ? "oui" : "non"}`);
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }

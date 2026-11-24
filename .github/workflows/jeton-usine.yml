@@ -1,0 +1,18 @@
+# Jeton propre à Flova pour le routeur de l'usine (bus 109, 24/11) : créé ici, rangé en secret de la fonction,
+# jamais affiché. Seule son empreinte sha256 est imprimée, pour être inscrite dans usine.jeton_appelant.
+name: Jeton usine Flova
+on: workflow_dispatch
+jobs:
+  jeton:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'flova-agency/flova-agency.github.io' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.122.1 }
+      - name: Creer et ranger le jeton
+        run: |
+          T=$(openssl rand -hex 32); echo "::add-mask::$T"
+          supabase secrets set "USINE_JETON=$T" --project-ref nhukbglercraslszazan >/dev/null
+          echo "EMPREINTE=$(printf %s "$T" | sha256sum | cut -d' ' -f1)"

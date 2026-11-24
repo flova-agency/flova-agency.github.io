@@ -131,7 +131,9 @@ async function droits(qui: Qui, ip: string) {
     }
   }
   // Gratuit : 1 création offerte, comptée par compte et par appareil (adresse) sur 30 jours.
-  const [{ n }] = qui
+  const [{ n }] = qui && ROBOT.test(qui.email) // robot de contrôle : compté par compte seulement (ses essais partagent la même adresse)
+    ? await sql`select count(*)::int n from ineed_chantiers where user_id=${qui.id} and cree_le > now() - interval '30 days'`
+    : qui
     ? await sql`select count(*)::int n from ineed_chantiers where (user_id=${qui.id} or ip_h=${ip}) and cree_le > now() - interval '30 days'`
     : await sql`select count(*)::int n from ineed_chantiers where ip_h=${ip} and cree_le > now() - interval '30 days'`;
   return { offre: "gratuite", restantes: Math.max(0, OFFRE.gratuites - n), connecte: !!qui, email: qui?.email || null };

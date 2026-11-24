@@ -33,6 +33,13 @@ function schema() {
       user_id uuid primary key, email text, cree_le timestamptz not null default now(), stripe_client text, abonnement text,
       statut text, fin_periode timestamptz, resiliation boolean not null default false, verifie_le timestamptz);
     alter table public.ineed_comptes enable row level security;
+    alter table public.ineed_chantiers add column if not exists slug text;
+    create unique index if not exists ineed_chantiers_slug on public.ineed_chantiers(slug) where slug is not null;
+    create table if not exists public.ineed_domaines(
+      domaine text primary key, chantier uuid not null, user_id uuid, session text, eur numeric, usd numeric,
+      etat text not null default 'paiement', erreur text, projet text, cree_le timestamptz not null default now(), maj_le timestamptz not null default now());
+    alter table public.ineed_domaines enable row level security;
+    revoke all on public.ineed_domaines from anon, authenticated;
     revoke all on public.ineed_comptes from anon, authenticated;
     create table if not exists public.ineed_appels(id bigserial primary key, le timestamptz not null default now(), ip_h text, action text);
     create index if not exists ineed_appels_ip on public.ineed_appels(ip_h, le desc);
@@ -122,6 +129,89 @@ async function droits(qui: Qui, ip: string) {
     ? await sql`select count(*)::int n from ineed_chantiers where (user_id=${qui.id} or ip_h=${ip}) and cree_le > now() - interval '30 days'`
     : await sql`select count(*)::int n from ineed_chantiers where ip_h=${ip} and cree_le > now() - interval '30 days'`;
   return { offre: "gratuite", restantes: Math.max(0, OFFRE.gratuites - n), connecte: !!qui, email: qui?.email || null };
+}
+
+/* ---------- beau lien et nom de domaine du client ---------- */
+function slugifier(t: string) {
+  return String(t || "").split(/\s[—–:|-]\s/)[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "") || "projet";
+}
+async function donnerSlug(id: string, nom: string) {
+  const base = slugifier(nom);
+  for (let i = 1; i < 50; i++) {
+    const s = i === 1 ? base : `${base}-${i}`;
+    const r = await sql`update ineed_chantiers set slug=${s} where id=${id} and slug is null and not exists (select 1 from ineed_chantiers where slug=${s}) returning slug`;
+    if (r.length) return r[0].slug as string;
+    const [d] = await sql`select slug from ineed_chantiers where id=${id}`; if (d?.slug) return d.slug as string;
+  }
+  return null;
+}
+const DOM = /^(?=.{4,63}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?\.[a-z]{2,24}$/;
+const VT = () => Deno.env.get("VERCEL_TOKEN") || "";
+async function vercel(chemin: string, init: RequestInit = {}) {
+  const equipe = Deno.env.get("VERCEL_TEAM_ID");
+  const url = `https://api.vercel.com${chemin}${equipe ? (chemin.includes("?") ? "&" : "?") + "teamId=" + equipe : ""}`;
+  const r = await fetch(url, { ...init, headers: { Authorization: `Bearer ${VT()}`, "Content-Type": "application/json", ...(init.headers || {}) } });
+  return { ok: r.ok, status: r.status, corps: await r.json().catch(() => ({})) as any };
+}
+const MARGE_EUR = 3, PLAFOND_EUR = 60, USD_EUR = 0.95; // règles Flova (20/11/2026) : le client paie, 3 € de marge, 60 € au plus
+async function prixDomaine(d: string) {
+  const [a, p] = await Promise.all([vercel(`/v1/registrar/domains/${d}/availability`), vercel(`/v1/registrar/domains/${d}/price?years=1`)]);
+  if (!a.ok) return { domaine: d, libre: null as boolean | null };
+  if (!a.corps.available) return { domaine: d, libre: false };
+  const usd = Number(p.corps?.purchasePrice ?? p.corps?.price);
+  if (!p.ok || !Number.isFinite(usd) || usd <= 0) return { domaine: d, libre: null };
+  const eur = Math.ceil(usd * USD_EUR + MARGE_EUR) - 0.1;
+  return { domaine: d, libre: eur <= PLAFOND_EUR, eur: Math.round(eur * 100) / 100, usd, premium: eur > PLAFOND_EUR };
+}
+async function publierVercel(projet: string, html: string) {
+  const pr = await vercel(`/v9/projects/${projet}`);
+  if (!pr.ok) { const c = await vercel(`/v10/projects`, { method: "POST", body: JSON.stringify({ name: projet, framework: null }) }); if (!c.ok) throw new Error("projet refusé : " + (c.corps?.error?.message || c.status)); }
+  const dep = await vercel(`/v13/deployments`, { method: "POST", body: JSON.stringify({ name: projet, project: projet, target: "production",
+    files: [{ file: "index.html", data: html }], projectSettings: { framework: null, buildCommand: null, outputDirectory: null } }) });
+  if (!dep.ok) throw new Error("publication refusée : " + (dep.corps?.error?.message || dep.status));
+  return dep.corps.url as string;
+}
+async function mailClient(to: string, sujet: string, html: string) {
+  const k = Deno.env.get("RESEND_API_KEY"); if (!k || !to) return;
+  await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: "ineed.shopping <noreply@flovaagency.com>", to: [to], reply_to: "contact@ineed.shopping", subject: sujet, html }) }).catch(() => {});
+}
+// Achat et mise en ligne après paiement : idempotent (un domaine déjà en cours ou en ligne n'est jamais racheté).
+async function livrerDomaine(sessionId: string) {
+  const r = await stripe(`/checkout/sessions/${sessionId}`, undefined, "GET");
+  const s2 = r.corps; const d = String(s2?.metadata?.domaine || "");
+  if (!r.ok || !DOM.test(d) || s2.payment_status !== "paid") return { etat: "attente" };
+  const [pris] = await sql`update ineed_domaines set etat='achat', maj_le=now() where domaine=${d} and etat='paiement' returning *`;
+  const [row] = pris ? [pris] : await sql`select * from ineed_domaines where domaine=${d}`;
+  if (!pris) return { etat: row?.etat || "inconnu", domaine: d };
+  const cd = s2.customer_details || {}; const ad = cd.address || {};
+  const [prenom, ...reste] = String(cd.name || "Client ineed").trim().split(/\s+/);
+  const tel = String(cd.phone || "").replace(/[^\d+]/g, ""); const intl = tel.startsWith("+") ? tel : "+32" + tel.replace(/^0/, "");
+  const contact = { firstName: prenom, lastName: reste.join(" ") || prenom, email: cd.email, phone: intl.replace(/^(\+\d{2})/, "$1."),
+    address1: ad.line1 || "", city: ad.city || "", state: ad.state || ad.city || "", zip: ad.postal_code || "", country: (ad.country || "BE").toUpperCase() };
+  try {
+    const achat = await vercel(`/v1/registrar/domains/${d}/buy`, { method: "POST", body: JSON.stringify({ autoRenew: true, years: 1, expectedPrice: Number(row.usd), contactInformation: contact }) });
+    if (!achat.ok) throw new Error("achat refusé : " + (achat.corps?.error?.message || achat.status));
+    const [c] = await sql`select html, slug, plan from ineed_chantiers where id=${row.chantier}`;
+    const projet = ("ineed-" + (c.slug || String(row.chantier).slice(0, 8))).slice(0, 90);
+    await publierVercel(projet, c.html);
+    for (const nom of [d, "www." + d]) {
+      const a = await vercel(`/v10/projects/${projet}/domains`, { method: "POST", body: JSON.stringify(nom.startsWith("www.") ? { name: nom, redirect: d } : { name: nom }) });
+      if (!a.ok && a.status !== 409 && a.corps?.error?.code !== "domain_already_in_use") throw new Error("branchement refusé : " + (a.corps?.error?.message || a.status));
+    }
+    await sql`update ineed_domaines set etat='en_ligne', projet=${projet}, maj_le=now() where domaine=${d}`;
+    await journal(row.chantier, "livre", `En ligne sur ${d}`);
+    await mailClient(cd.email, `Votre site est en ligne sur ${d}`, `<p>Bonjour,</p><p>C'est fait : <b>${d}</b> est à votre nom et votre création y est en ligne, avec le cadenas de sécurité. Les premières minutes, l'adresse peut encore mettre un peu de temps à répondre partout.</p><p><a href="https://${d}">https://${d}</a></p><p>L'équipe ineed.shopping</p>`);
+    return { etat: "en_ligne", domaine: d };
+  } catch (e) {
+    const msg = (e as Error).message.slice(0, 300);
+    if (s2.payment_intent) await stripe("/refunds", { payment_intent: String(s2.payment_intent) });
+    await sql`update ineed_domaines set etat='rembourse', erreur=${msg}, maj_le=now() where domaine=${d}`;
+    await mailClient(cd.email, `${d} : paiement remboursé`, `<p>Bonjour,</p><p>L'adresse <b>${d}</b> n'a pas pu être achetée (elle vient peut-être d'être prise). Votre paiement est remboursé automatiquement. Choisissez une autre adresse depuis votre projet.</p><p>L'équipe ineed.shopping</p>`);
+    await mailClient("contact@ineed.shopping", `ineed : achat de ${d} échoué, client remboursé`, `<p>${msg}</p>`);
+    return { etat: "rembourse", domaine: d };
+  }
 }
 
 /* ---------- moteurs ---------- */
@@ -341,6 +431,8 @@ async function retouche(id: string, consigne: string) {
     if (d.some((x) => x.startsWith("Erreur de syntaxe"))) throw new Error("syntaxe après retouche");
     await sql`update ineed_chantiers set html=${html}, versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne, html }])} where id=${id}`;
     await journal(id, "livre", `Retouche faite : ${String(v.resume || consigne).slice(0, 200)}`, r.cout);
+    const [dm] = await sql`select projet from ineed_domaines where chantier=${id} and etat='en_ligne' and projet is not null limit 1`;
+    if (dm && VT()) { try { await publierVercel(dm.projet, html); } catch (e) { console.error("republication :", (e as Error).message); } } // le site en ligne suit la retouche
   } catch {
     await journal(id, "livre", "Je n'ai pas réussi cette retouche sans risquer de casser le reste. Reformulez-la plus simplement : le produit est resté comme avant.");
   }
@@ -484,6 +576,56 @@ Deno.serve(async (req) => {
       if (!r.ok) return json({ erreur: "lien", detail: j?.msg || j?.error_description || r.status }, 502);
       return json({ ok: true, lien: j.action_link || j.properties?.action_link });
     }
+    if (b.action === "par_slug") { // beau lien : ineed.shopping/p/<nom>
+      const sl = String(b.slug || "").toLowerCase();
+      if (!/^[a-z0-9-]{1,50}$/.test(sl)) return json({ erreur: "introuvable" }, 404);
+      const [c] = await sql`select id, plan, html, etape from ineed_chantiers where slug=${sl}`;
+      if (!c) return json({ erreur: "introuvable" }, 404);
+      return json({ ok: true, chantier: c });
+    }
+    if (b.action === "domaines") { // adresses proposées pour une création, avec leur prix TTC
+      if (!VT()) return json({ ok: false, bientot: true, erreur: "L'achat d'adresse ouvre très bientôt." });
+      const brut = String(b.nom || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const voulus: string[] = [];
+      if (DOM.test(brut)) voulus.push(brut);
+      const racine = (brut.split(".")[0] || "").replace(/[^a-z0-9-]+/g, "").slice(0, 40);
+      if (racine) for (const ext of ["be", "com", "shop", "eu", "net", "fr"]) { const x = `${racine}.${ext}`; if (!voulus.includes(x)) voulus.push(x); }
+      if (!voulus.length) return json({ erreur: "Tapez le nom voulu, par exemple « darzellige »." }, 400);
+      const res = await Promise.all(voulus.slice(0, 7).map(prixDomaine));
+      return json({ ok: true, domaines: res });
+    }
+    if (b.action === "domaine_payer" && id) {
+      if (!qui) return json({ erreur: "connexion" }, 401);
+      if (!VT()) return json({ erreur: "L'achat d'adresse ouvre très bientôt." }, 503);
+      const d = String(b.domaine || "").toLowerCase();
+      if (!DOM.test(d)) return json({ erreur: "Adresse non valide." }, 400);
+      const [c] = await sql`select user_id, etape from ineed_chantiers where id=${id}`;
+      if (!c || c.etape !== "livre") return json({ erreur: "Le projet n'est pas encore livré." }, 409);
+      if (c.user_id && c.user_id !== qui.id) return json({ erreur: "Ce projet appartient à un autre compte." }, 403);
+      if (!c.user_id) await sql`update ineed_chantiers set user_id=${qui.id} where id=${id} and user_id is null`;
+      const p: any = await prixDomaine(d);
+      if (!p.libre) return json({ erreur: p.premium ? "Cette adresse est premium. Choisissez-en une autre." : "Cette adresse vient d'être prise. Choisissez-en une autre." }, 409);
+      const [deja] = await sql`select etat from ineed_domaines where domaine=${d}`;
+      if (deja && deja.etat !== "paiement" && deja.etat !== "rembourse") return json({ erreur: "Cette adresse est déjà en cours d'achat." }, 409);
+      const r = await stripe("/checkout/sessions", {
+        mode: "payment", locale: "fr", customer_email: qui.email, billing_address_collection: "required", "phone_number_collection[enabled]": "true",
+        "line_items[0][quantity]": "1", "line_items[0][price_data][currency]": "eur", "line_items[0][price_data][unit_amount]": String(Math.round(p.eur * 100)),
+        "line_items[0][price_data][product_data][name]": `Adresse ${d} — 1 an, mise en ligne comprise`,
+        "metadata[domaine]": d, "metadata[chantier]": id, "metadata[user_id]": qui.id,
+        success_url: `${SITE}?adresse={CHECKOUT_SESSION_ID}#c=${id}`, cancel_url: `${SITE}#c=${id}`,
+      });
+      if (!r.ok) return json({ erreur: "Le paiement n'est pas disponible pour le moment.", detail: String(r.corps?.error?.message || "").slice(0, 200) }, 502);
+      await sql`insert into ineed_domaines(domaine, chantier, user_id, session, eur, usd, etat) values (${d}, ${id}, ${qui.id}, ${r.corps.id}, ${p.eur}, ${p.usd}, 'paiement')
+        on conflict (domaine) do update set chantier=excluded.chantier, user_id=excluded.user_id, session=excluded.session, eur=excluded.eur, usd=excluded.usd, etat='paiement', erreur=null, maj_le=now()`;
+      return json({ ok: true, url: r.corps.url, eur: p.eur });
+    }
+    if (b.action === "domaine_confirmer") {
+      const sid = String(b.session || ""); if (!/^cs_[A-Za-z0-9_]+$/.test(sid)) return json({ erreur: "session" }, 400);
+      const [row] = await sql`select domaine, etat from ineed_domaines where session=${sid}`;
+      if (!row) return json({ erreur: "introuvable" }, 404);
+      if (row.etat !== "paiement") return json({ ok: true, etat: row.etat, domaine: row.domaine });
+      return json({ ok: true, ...(await livrerDomaine(sid)) });
+    }
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
@@ -500,7 +642,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (b.action === "etat" && id) {
-      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, jsonb_array_length(versions) nv,
+      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, slug, jsonb_array_length(versions) nv,
         case when ${!!b.html} then html end html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
       // Une étape muette depuis plus de 70 s (exécution coupée par la plateforme) repart toute seule, 6 fois au plus.
@@ -509,7 +651,9 @@ Deno.serve(async (req) => {
         if (r && r.relances <= 6) { lancer(etape(id, relanceur(req, id))); }
         else if (r) { await journal(id, "panne", "L'étape a calé plusieurs fois. Touchez « Reprendre »."); c.etape = "panne"; }
       }
-      return json({ ok: true, chantier: { ...c, cout_usd: Number(c.cout_usd) } });
+      if (c.etape === "livre" && !c.slug) c.slug = await donnerSlug(id, c.plan?.nom || c.cadrage?.titre || c.ordre);
+      const [dm] = await sql`select domaine, etat from ineed_domaines where chantier=${id} and etat in ('achat','en_ligne') order by maj_le desc limit 1`;
+      return json({ ok: true, chantier: { ...c, cout_usd: Number(c.cout_usd), domaine: dm || null } });
     }
     return json({ erreur: "action" }, 400);
   } catch (e) {

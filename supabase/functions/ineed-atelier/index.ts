@@ -669,11 +669,11 @@ Deno.serve(async (req) => {
       if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
       const depuis = typeof b.depuis === "string" && !isNaN(Date.parse(b.depuis)) ? b.depuis : "1970-01-01";
       const avecHtml = b.html !== false;
-      const l = await sql`select c.slug, c.maj_le, c.etape, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
+      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
         from ineed_chantiers c left join auth.users u on u.id = c.user_id
         where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and (${b.robots === true} or coalesce(u.email, '') !~ '^robot-')
         order by c.maj_le limit 200`;
-      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
+      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
     }
     if (b.action === "par_slug") { // beau lien : ineed.shopping/p/<nom>
       const sl = String(b.slug || "").toLowerCase();

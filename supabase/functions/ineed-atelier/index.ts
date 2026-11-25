@@ -466,8 +466,12 @@ async function etape(id: string, suite: () => void) {
       const mod = await chercherModele(c).catch((e) => { console.error("bibliothèque :", (e as Error).message); return null; });
       if (mod) {
         const [m] = await sql`select html, plan, cout_usd, note from ineed_bibliotheque where id=${mod.id}`;
-        const r = await ia(SYS_PERSONNALISER, `${contexte}\n\nProduit validé à adapter :\n${m.html}`, { max: 6000, jsonMode: true, temp: 0.2 });
-        const v = objet(r.texte) || {};
+        let r = await ia(SYS_PERSONNALISER, `${contexte}\n\nProduit validé à adapter :\n${m.html}`, { max: 6000, jsonMode: true, temp: 0.2 });
+        let v = objet(r.texte) || {};
+        if (!Array.isArray(v.corrections) || !v.corrections.length) { // 25/11 : réponse vide ou coupée → un second essai (≈ 0,005 $) plutôt qu'une fabrication complète (≈ 0,10 $)
+          const r2 = await ia(SYS_PERSONNALISER, `${contexte}\n\nProduit validé à adapter :\n${m.html}\n\nAu plus 25 corrections courtes. JSON valide uniquement.`, { max: 6000, jsonMode: true, temp: 0.1 });
+          r = { ...r2, cout: r.cout + r2.cout }; v = objet(r2.texte) || {};
+        }
         // Chaque adaptation n'est gardée que si elle n'ajoute aucun défaut (ex. apostrophe qui casse un script).
         const nom = String(v.nom || c.cadrage?.titre || "");
         const sur = (h: string) => controle(h.split("{{NOM}}").join(nom.replace(/['"\\`]/g, "’"))).length;

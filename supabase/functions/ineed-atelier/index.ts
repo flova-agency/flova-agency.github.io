@@ -418,8 +418,8 @@ async function garderModele(c: any, html: string, note: number) {
 }
 async function chercherModele(c: any) {
   const m = motsMetier(c.ordre + " " + (c.cadrage?.titre || ""));
-  const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 90 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
-  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score); // 25/11 : on sert le meilleur modèle proche (≥ 90), car l'adaptation doit elle-même atteindre 90
+  const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 85 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
+  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score); // 25/11 : on sert le meilleur modèle proche noté ≥ 85
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
     const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
     if (!modeleCasse(String(h?.html || ""))) return x;
@@ -504,9 +504,9 @@ async function etape(id: string, suite: () => void) {
     await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
     if (c.depuis_modele && !lisible && tour < 3) { await journal(id, "controle", "Relecture illisible : je relis encore une fois avant de jeter l'adaptation."); return suite(); } // 25/11 : une relecture ratée (~0,003 $) ne doit pas jeter une adaptation et coûter une fabrication neuve (~0,09 $)
     if (tour < (c.depuis_modele ? 1 : 3) && (reste.length || (note < 85 && a.n > 0))) return suite();
-    if (c.depuis_modele && (note < 90 || reste.length)) { // bus 144 : un site tiré d'un modèle doit lui-même obtenir ≥ 90, sinon fabrication neuve
+    if (c.depuis_modele && (note < 85 || reste.length)) { // 25/11 décision Karim (QCM) : une adaptation est acceptée dès 85, comme l'entrée en bibliothèque (remplace le 90 du bus 144)
       await sql`update ineed_chantiers set plan=null, html=null, depuis_modele=null, tours=0, note=null where id=${id}`;
-      await journal(id, "construction", `Adaptation du modèle notée ${note}/100 (< 90) : l'atelier repart sur une fabrication neuve.`);
+      await journal(id, "construction", `Adaptation du modèle notée ${note}/100 (< 85) : l'atelier repart sur une fabrication neuve.`);
       return suite();
     }
     await sql`update ineed_chantiers set versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne: "Première livraison", html: a.html }])} where id=${id}`;
@@ -699,7 +699,7 @@ Deno.serve(async (req) => {
       for (const x of await sql`select b.id, c.ordre, c.cadrage from ineed_bibliotheque b join ineed_chantiers c on c.id = b.chantier`) {
         await sql`update ineed_bibliotheque set mots=${motsMetier((x.ordre || "") + " " + (x.cadrage?.titre || ""))} where id=${x.id}`; recalcules++;
       }
-      const [t] = await sql`select count(*)::int n, count(*) filter (where coalesce(note,0) >= 90)::int servables from ineed_bibliotheque`;
+      const [t] = await sql`select count(*)::int n, count(*) filter (where coalesce(note,0) >= 85)::int servables from ineed_bibliotheque`;
       const [r] = await sql`select count(*)::int n from ineed_chantiers c where c.html is not null and length(c.html) > 500 and not exists (select 1 from ineed_bibliotheque b where b.chantier = c.id)`;
       return json({ ok: true, ajoutes: res, recalcules, bibliotheque: t, restants: r.n });
     }

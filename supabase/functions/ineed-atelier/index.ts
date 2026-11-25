@@ -684,6 +684,20 @@ Deno.serve(async (req) => {
       const l = await sql`select id, cree_le, genre, metier, note, servi, cout_usd, mots, length(html) taille from ineed_bibliotheque order by note desc nulls last, cree_le desc limit 300`;
       return json({ ok: true, modeles: l });
     }
+    if (b.action === "bibliotheque_essai") { // diagnostic : quel modèle serait servi pour cette demande, et pourquoi (même jeton)
+      const j = req.headers.get("x-ineed-jeton") || "";
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");
+      if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
+      const c = { id: null, ordre: String(b.ordre || ""), cadrage: { genre: b.genre || "site", titre: String(b.titre || "") } };
+      const m = motsMetier(c.ordre + " " + c.cadrage.titre);
+      try {
+        const l = await sql`select id, mots, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage.genre}) and coalesce(note, 0) >= 85 order by note desc, cree_le desc limit 300`;
+        const cands = l.map((x: any) => ({ id: x.id, note: x.note, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score).slice(0, 5);
+        for (const x of cands) { const [hh] = await sql`select html from ineed_bibliotheque where id=${x.id}`; const hs = String(hh?.html || ""); (x as any).casse = modeleCasse(hs); (x as any).defauts = controle(hs.split("{{NOM}}").join("Le Nom d’Essai")).slice(0, 3); }
+        const choisi = await chercherModele(c).catch((e) => ({ erreur: (e as Error).message }));
+        return json({ ok: true, mots: m, candidats: cands, choisi });
+      } catch (e) { return json({ ok: false, erreur: (e as Error).message }); }
+    }
     if (b.action === "bibliotheque_rattrapage") { // 25/11 Karim : enregistrer tous les sites déjà faits (même jeton que la publication)
       const j = req.headers.get("x-ineed-jeton") || "";
       const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");

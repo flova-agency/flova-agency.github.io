@@ -586,6 +586,22 @@ function relanceur(req: Request, id: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method === "GET") { // bus 296 : lecture publique pour tirer-sites (usine-2) — sites déjà publics, aucun secret
+    const u = new URL(req.url);
+    if (u.searchParams.get("action") !== "sites_publies") return json({ erreur: "methode" }, 405);
+    const d = u.searchParams.get("depuis") || "";
+    const depuis = d && !isNaN(Date.parse(d)) ? d : "1970-01-01";
+    const avecHtml = u.searchParams.get("html") !== "0";
+    const essai = u.searchParams.get("essai") === "1"; // sites de test robots, pour la vérification du premier https uniquement
+    try {
+      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
+        from ineed_chantiers c left join auth.users u on u.id = c.user_id
+        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis}
+          and (${essai} or coalesce(u.email, '') !~ '^robot-') and not (c.slug = any(${SITES_ESSAI}))
+        order by c.maj_le limit 200`;
+      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, url: `https://ineed.shopping/p/${x.slug}`, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
+    } catch (e) { return json({ ok: false, erreur: (e as Error).message.slice(0, 200) }, 500); }
+  }
   if (req.method !== "POST") return json({ erreur: "methode" }, 405);
   let b: any;
   try { b = await req.json(); } catch { return json({ erreur: "requete" }, 400); }

@@ -674,6 +674,13 @@ Deno.serve(async (req) => {
       if (!r.ok) return json({ erreur: "lien", detail: j?.msg || j?.error_description || r.status }, 502);
       return json({ ok: true, lien: j.action_link || j.properties?.action_link });
     }
+    if (b.action === "bibliotheque_etat") { // lecture seule pour le cerveau et le pilote (même jeton)
+      const j = req.headers.get("x-ineed-jeton") || "";
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");
+      if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
+      const l = await sql`select id, cree_le, genre, metier, note, servi, cout_usd, mots, length(html) taille from ineed_bibliotheque order by note desc nulls last, cree_le desc limit 300`;
+      return json({ ok: true, modeles: l });
+    }
     if (b.action === "bibliotheque_rattrapage") { // 25/11 Karim : enregistrer tous les sites déjà faits (même jeton que la publication)
       const j = req.headers.get("x-ineed-jeton") || "";
       const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");

@@ -416,8 +416,8 @@ async function garderModele(c: any, html: string, note: number) {
 }
 async function chercherModele(c: any) {
   const m = mots(c.ordre + " " + (c.cadrage?.titre || ""));
-  const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 85 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
-  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score || (b.note || 0) - (a.note || 0));
+  const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 90 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
+  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score); // 25/11 : on sert le meilleur modèle proche (≥ 90), car l'adaptation doit elle-même atteindre 90
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
     const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
     if (!modeleCasse(String(h?.html || ""))) return x;

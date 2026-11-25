@@ -379,6 +379,8 @@ async function journal(id: string, etape: string, texte: string, cout = 0) {
 /* ---------- bibliothèque de modèles (bus 123) : un site validé (note ≥ 90) est gardé anonymisé, et sert de point de départ à une demande équivalente ---------- */
 const VIDES = new Set("pour avec dans une des les mon mes son ses sur par qui que est sont pas plus tout tous mais aussi votre vous nous leur aux du de la le un et ou en au a je veux faire site page application outil".split(" "));
 function mots(t: string) { return [...new Set((t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter((m) => m.length > 2 && !VIDES.has(m)))]; }
+// 25/11 : la ressemblance ignore les noms propres (nom du commerce, ville) : « restaurant marocain à Namur » doit retrouver celui de Liège.
+function motsMetier(t: string) { return mots(String(t || "").replace(/(^|[^\p{L}])\p{Lu}[\p{L}'’-]*/gu, "$1 ")); }
 function proche(a: string[], b: string[]) { if (!a.length || !b.length) return 0; const B = new Set(b); const n = a.filter((m) => B.has(m)).length; return n / Math.min(a.length, b.length); }
 function anonymiser(html: string, c: any) {
   let h = html;
@@ -402,7 +404,7 @@ async function garderModele(c: any, html: string, note: number) {
   const casse = modeleCasse(h);
   if (casse) console.error("modèle enregistré mais non servable : l'anonymisation casse le code");
   const demande = anonymiser(c.ordre || "", c).slice(0, 500) || "(demande vide)";
-  const mt = mots((c.ordre || "") + " " + (c.cadrage?.titre || ""));
+  const mt = motsMetier((c.ordre || "") + " " + (c.cadrage?.titre || ""));
   const plan = (() => { try { return JSON.parse(anonymiser(JSON.stringify({ ...(c.plan || {}), nom: "{{NOM}}" }), c)); } catch { return { nom: "{{NOM}}" }; } })();
   const [deja] = await sql`select id from ineed_bibliotheque where chantier=${c.id} limit 1`;
   if (deja) { // un site retouché remplace sa propre fiche : jamais de doublon, rien n'est supprimé
@@ -415,7 +417,7 @@ async function garderModele(c: any, html: string, note: number) {
   return m?.id || null;
 }
 async function chercherModele(c: any) {
-  const m = mots(c.ordre + " " + (c.cadrage?.titre || ""));
+  const m = motsMetier(c.ordre + " " + (c.cadrage?.titre || ""));
   const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 90 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
   const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score); // 25/11 : on sert le meilleur modèle proche (≥ 90), car l'adaptation doit elle-même atteindre 90
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
@@ -692,9 +694,13 @@ Deno.serve(async (req) => {
         try { const id = await garderModele(c, c.html, Number(c.note) || 0); res.push({ chantier: c.id, fiche: id, note: c.note }); }
         catch (e) { res.push({ chantier: c.id, erreur: String((e as Error).message).slice(0, 120) }); }
       }
-      const [t] = await sql`select count(*)::int n, count(*) filter (where coalesce(note,0) >= 85)::int servables from ineed_bibliotheque`;
+      let recalcules = 0;
+      for (const x of await sql`select b.id, c.ordre, c.cadrage from ineed_bibliotheque b join ineed_chantiers c on c.id = b.chantier`) {
+        await sql`update ineed_bibliotheque set mots=${motsMetier((x.ordre || "") + " " + (x.cadrage?.titre || ""))} where id=${x.id}`; recalcules++;
+      }
+      const [t] = await sql`select count(*)::int n, count(*) filter (where coalesce(note,0) >= 90)::int servables from ineed_bibliotheque`;
       const [r] = await sql`select count(*)::int n from ineed_chantiers c where c.html is not null and length(c.html) > 500 and not exists (select 1 from ineed_bibliotheque b where b.chantier = c.id)`;
-      return json({ ok: true, ajoutes: res, bibliotheque: t, restants: r.n });
+      return json({ ok: true, ajoutes: res, recalcules, bibliotheque: t, restants: r.n });
     }
     if (b.action === "sites_publies") { // bus 156 : publication en TIRÉ — usine-2 lit la liste chaque minute et publie <nom>.ineed.shopping
       const j = req.headers.get("x-ineed-jeton") || "";

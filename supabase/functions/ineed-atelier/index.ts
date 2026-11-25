@@ -426,6 +426,32 @@ async function chercherModele(c: any) {
   }
   return null;
 }
+// 25/11 Karim : « le site ne peut pas être revendu 2 fois ou utilisé 2 fois » → tout site repris de la bibliothèque reçoit un habillage neuf
+// (seul le style est réécrit : textes, structure et code restent), sinon fabrication complète. Jamais deux sites livrés avec le même aspect.
+const SYS_REHABILLER = `Tu es directeur artistique d'une agence haut de gamme. On te donne la feuille de style d'un site déjà livré à un autre client, la liste des classes et identifiants utilisés par le HTML, et le métier du nouveau client.
+Écris une feuille de style ENTIÈREMENT NOUVELLE pour ce même HTML : autre palette (aucune des couleurs d'origine), autres polices Google Fonts (aucune des polices d'origine), autre ambiance, autres formes (rayons, ombres, bordures), autre mise en page de l'accueil (alignement, tailles, arrière-plans, dégradés).
+Exigence absolue : tape-à-l'œil, moderne, digne d'une grande agence, impact au premier regard ; parfait sur iPhone SE (375 px) sans défilement horizontal ; contrastes lisibles.
+Couvre toutes les classes et tous les identifiants listés, garde les règles d'affichage indispensables au fonctionnement (éléments cachés/affichés, onglets, fenêtres, menus) avec les mêmes sélecteurs d'état.
+Réponds uniquement par le CSS, sans phrase, en commençant par la ligne @import des polices.`;
+async function rehabiller(html: string, metier: string) {
+  const styles = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((x) => x[1]);
+  const ancien = styles.join("\n");
+  if (ancien.length < 800) return null;
+  const noms = [...new Set([...html.matchAll(/\bclass="([^"]+)"/g)].flatMap((x) => x[1].split(/\s+/)).concat([...html.matchAll(/\bid="([^"]+)"/g)].map((x) => "#" + x[1])))].slice(0, 400);
+  const r = await ia(SYS_REHABILLER, `Métier du nouveau client : ${metier}\n\nClasses et identifiants du HTML : ${noms.join(" ")}\n\nFeuille de style d'origine (à ne pas reproduire) :\n${ancien.slice(0, 30000)}`, { max: 9000, temp: 0.9 });
+  let css = r.texte.trim().replace(/^```(?:css)?\s*/i, "").replace(/```\s*$/, "").trim();
+  if (css.length < Math.min(1500, ancien.length * 0.4) || !/[{}]/.test(css)) return { html: null as string | null, cout: r.cout };
+  const polices = (t: string) => new Set([...t.matchAll(/family=([^:&;"')]+)/g)].map((x) => decodeURIComponent(x[1]).replace(/\+/g, " ").toLowerCase()));
+  const couleurs = (t: string) => new Set((t.match(/#[0-9a-f]{6}\b/gi) || []).map((c) => c.toLowerCase()));
+  const pA = polices(ancien), cA = couleurs(ancien), cN = couleurs(css);
+  const memePolice = [...polices(css)].some((f) => pA.has(f));
+  const communes = [...cN].filter((c) => cA.has(c) && !["#ffffff", "#000000"].includes(c)).length;
+  if (memePolice || (cN.size && communes / cN.size > 0.3)) return { html: null as string | null, cout: r.cout };
+  let premier = true;
+  const neuf = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, () => { if (premier) { premier = false; return `<style>${css}</style>`; } return ""; })
+    .replace(/<link[^>]+fonts\.googleapis\.com[^>]*>/gi, "");
+  return { html: neuf, cout: r.cout };
+}
 const SYS_PERSONNALISER = `Tu es le développeur de l'atelier ineed.shopping. Tu reçois un produit déjà validé (HTML, anonymisé : {{NOM}} marque le nom du client précédent, coordonnées remplacées) et la demande d'un NOUVEAU client du même métier.
 Adapte-le à ce nouveau client par remplacements ciblés : son nom à la place de {{NOM}}, ses textes, sa ville, ses prestations, ses couleurs si demandées. Garde la structure, le design et le code qui fonctionnent. Ne laisse aucun {{NOM}}.
 Réponds en JSON : {"nom": "nom du produit", "corrections": [{"chercher":"texte exact présent dans le fichier","remplacer":"nouveau texte"}]}`;
@@ -454,12 +480,17 @@ async function etape(id: string, suite: () => void) {
         // le nom n'entre dans le code que sous une forme sans guillemet ni apostrophe droite
         const html = a2.html.replace(/<script\b[\s\S]*?<\/script>/gi, (sc) => sc.split("{{NOM}}").join(nom.replace(/['"\\`]/g, "’"))).split("{{NOM}}").join(nom);
         if (a2.n > 0 && /<html/i.test(html) && !html.includes("{{NOM}}")) {
-          await sql`update ineed_chantiers set plan=${sql.json({ nom: v.nom || c.cadrage?.titre || "", resume: c.cadrage?.resume || "", genre: c.cadrage?.genre || "", criteres: (m.plan?.criteres || []), style: (m.plan?.style || {}) })}, html=${html}, depuis_modele=${mod.id}, note=${m.note || null} where id=${id}`;
-          await sql`update ineed_bibliotheque set servi=servi+1 where id=${mod.id}`;
-          await journal(id, "controle", `Servi depuis la bibliothèque (modèle ${String(mod.id).slice(0, 8)}, ressemblance ${Math.round(mod.score * 100)} %) : ${a2.n} adaptation(s). Coût réel ${r.cout.toFixed(4)} $, coût évité ≈ ${Math.max(0, Number(m.cout_usd) - r.cout).toFixed(4)} $.`, r.cout);
-          return suite();
-        }
-        await journal(id, "construction", "Modèle trouvé mais non adaptable : fabrication complète.", r.cout);
+          const rh = await rehabiller(html, String(c.cadrage?.titre || c.ordre || "").slice(0, 200)).catch((e) => { console.error("habillage :", (e as Error).message); return null; });
+          const avant = controle(html).length;
+          if (rh?.html && controle(rh.html).length <= avant) {
+            await sql`update ineed_chantiers set plan=${sql.json({ nom: v.nom || c.cadrage?.titre || "", resume: c.cadrage?.resume || "", genre: c.cadrage?.genre || "", criteres: (m.plan?.criteres || []), style: {} })}, html=${rh.html}, depuis_modele=${mod.id}, note=${m.note || null} where id=${id}`;
+            await sql`update ineed_bibliotheque set servi=servi+1 where id=${mod.id}`;
+            const cout = r.cout + rh.cout;
+            await journal(id, "controle", `Servi depuis la bibliothèque (modèle ${String(mod.id).slice(0, 8)}, ressemblance ${Math.round(mod.score * 100)} %) : ${a2.n} adaptation(s) + habillage neuf (aucune couleur ni police reprise). Coût réel ${cout.toFixed(4)} $, coût évité ≈ ${Math.max(0, Number(m.cout_usd) - cout).toFixed(4)} $.`, cout);
+            return suite();
+          }
+          await journal(id, "construction", "Modèle trouvé mais habillage neuf non réussi : fabrication complète (jamais deux sites identiques).", r.cout + (rh?.cout || 0));
+        } else await journal(id, "construction", "Modèle trouvé mais non adaptable : fabrication complète.", r.cout);
       }
     }
     if (!c.plan) {

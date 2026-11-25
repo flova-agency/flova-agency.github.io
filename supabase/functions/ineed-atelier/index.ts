@@ -396,18 +396,28 @@ function anonymiser(html: string, c: any) {
 // Un modèle est cassé si le repère {{NOM}} colle à un nom de code, ou si le code ne passe plus avec un nom à espace et apostrophe.
 function modeleCasse(h: string) { return /[\w$]\{\{NOM\}\}|\{\{NOM\}\}[\w$]/.test(h) || controle(h.split("{{NOM}}").join("Le Nom d’Essai")).length > 0; }
 async function garderModele(c: any, html: string, note: number) {
-  if (note < 85 || c.depuis_modele) return null; // bus 144 : seuil d'entrée 85
+  // 25/11 Karim : TOUT site fabriqué est enregistré (quelle que soit sa note) pour servir les demandes proches à coût réduit.
+  // Seuls les modèles notés ≥ 85 et dont le code tient une fois anonymisé sont servis (voir chercherModele).
   const h = anonymiser(html, c);
-  if (modeleCasse(h)) { console.error("modèle refusé : l'anonymisation casse le code"); return null; }
+  const casse = modeleCasse(h);
+  if (casse) console.error("modèle enregistré mais non servable : l'anonymisation casse le code");
+  const demande = anonymiser(c.ordre || "", c).slice(0, 500) || "(demande vide)";
+  const mt = mots((c.ordre || "") + " " + (c.cadrage?.titre || ""));
+  const plan = (() => { try { return JSON.parse(anonymiser(JSON.stringify({ ...(c.plan || {}), nom: "{{NOM}}" }), c)); } catch { return { nom: "{{NOM}}" }; } })();
+  const [deja] = await sql`select id from ineed_bibliotheque where chantier=${c.id} limit 1`;
+  if (deja) { // un site retouché remplace sa propre fiche : jamais de doublon, rien n'est supprimé
+    await sql`update ineed_bibliotheque set html=${h}, plan=${sql.json(plan)}, note=${note}, mots=${mt}, demande=${demande}, cout_usd=${Number(c.cout_usd) || 0} where id=${deja.id}`;
+    return deja.id;
+  }
   const [m] = await sql`insert into ineed_bibliotheque(chantier, genre, metier, langue, demande, mots, plan, html, cout_usd, note)
-    values (${c.id}, ${c.cadrage?.genre || null}, ${c.plan?.metier || c.cadrage?.titre || null}, ${c.plan?.langue || "fr"}, ${anonymiser(c.ordre, c).slice(0, 500)},
-      ${mots(c.ordre + " " + (c.cadrage?.titre || ""))}, ${sql.json((() => { try { return JSON.parse(anonymiser(JSON.stringify({ ...(c.plan || {}), nom: "{{NOM}}" }), c)); } catch { return { nom: "{{NOM}}" }; } })())}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
+    values (${c.id}, ${c.cadrage?.genre || null}, ${c.plan?.metier || c.cadrage?.titre || null}, ${c.plan?.langue || "fr"}, ${demande},
+      ${mt}, ${sql.json(plan)}, ${h}, ${Number(c.cout_usd) || 0}, ${note}) returning id`;
   return m?.id || null;
 }
 async function chercherModele(c: any) {
   const m = mots(c.ordre + " " + (c.cadrage?.titre || ""));
-  const l = await sql`select id, mots, cout_usd from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) order by cree_le desc limit 300`;
-  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score);
+  const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 85 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
+  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score || (b.note || 0) - (a.note || 0));
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
     const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
     if (!modeleCasse(String(h?.html || ""))) return x;
@@ -518,6 +528,7 @@ async function retouche(id: string, consigne: string) {
     if (d.some((x) => x.startsWith("Erreur de syntaxe"))) throw new Error("syntaxe après retouche");
     await sql`update ineed_chantiers set html=${html}, versions = versions || ${sql.json([{ le: new Date().toISOString(), consigne, html }])} where id=${id}`;
     await journal(id, "livre", `Retouche faite : ${String(v.resume || consigne).slice(0, 200)}`, r.cout);
+    { const [cc] = await sql`select * from ineed_chantiers where id=${id}`; if (cc) await garderModele(cc, html, Number(cc.note) || 0).catch((e) => console.error("garder modèle :", (e as Error).message)); } // la bibliothèque garde la dernière version
     const [dm] = await sql`select projet from ineed_domaines where chantier=${id} and etat='en_ligne' and projet is not null limit 1`;
     if (dm && VT()) { try { await publierVercel(dm.projet, html); } catch (e) { console.error("republication :", (e as Error).message); } } // le site en ligne suit la retouche
   } catch {
@@ -662,6 +673,21 @@ Deno.serve(async (req) => {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return json({ erreur: "lien", detail: j?.msg || j?.error_description || r.status }, 502);
       return json({ ok: true, lien: j.action_link || j.properties?.action_link });
+    }
+    if (b.action === "bibliotheque_rattrapage") { // 25/11 Karim : enregistrer tous les sites déjà faits (même jeton que la publication)
+      const j = req.headers.get("x-ineed-jeton") || "";
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(j)))).map((x) => x.toString(16).padStart(2, "0")).join("");
+      if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
+      const l = await sql`select c.* from ineed_chantiers c where c.html is not null and length(c.html) > 500
+        and not exists (select 1 from ineed_bibliotheque b where b.chantier = c.id) order by c.cree_le limit 40`;
+      const res: any[] = [];
+      for (const c of l) {
+        try { const id = await garderModele(c, c.html, Number(c.note) || 0); res.push({ chantier: c.id, fiche: id, note: c.note }); }
+        catch (e) { res.push({ chantier: c.id, erreur: String((e as Error).message).slice(0, 120) }); }
+      }
+      const [t] = await sql`select count(*)::int n, count(*) filter (where coalesce(note,0) >= 85)::int servables from ineed_bibliotheque`;
+      const [r] = await sql`select count(*)::int n from ineed_chantiers c where c.html is not null and length(c.html) > 500 and not exists (select 1 from ineed_bibliotheque b where b.chantier = c.id)`;
+      return json({ ok: true, ajoutes: res, bibliotheque: t, restants: r.n });
     }
     if (b.action === "sites_publies") { // bus 156 : publication en TIRÉ — usine-2 lit la liste chaque minute et publie <nom>.ineed.shopping
       const j = req.headers.get("x-ineed-jeton") || "";

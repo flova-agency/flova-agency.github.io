@@ -77,6 +77,7 @@ Chaque étape : codée, testée sur iPhone 15, iPhone SE et ordinateur, en ligne
   - FAIT 24/11 vers 11 h : clé Stripe collée par Karim ; parcours payant prouvé en production par le robot (offre → page Stripe Flova 99 € TTC, TVA calculée sur adresse belge → abonnement actif « ULTRA », 30 créations → résiliation « se termine le 24/12 »). Google publié en production, contact@ineed.shopping renvoyé vers Karim. (ancien blocage : la clé secrète Stripe du compte Flova n'existait pas → paiement refusé (« You did not provide an API key »). Pages ouvertes dans son Chrome : Stripe › Clés API (compte Flova) et Supabase › Secrets (nom STRIPE_SECRET_KEY déjà tapé).
   - BLOQUÉ (décision de Karim) : l'application Google « Flova » est en mode Test (seul Karim peut se connecter). Pour la publier : page de confidentialité sur ineed.shopping avec une adresse de contact publique, à choisir.
 - [ ] **A5. Mise en ligne sur un vrai domaine** — brancher flova-domaine : le produit livré part sur le domaine acheté par le client.
+  - 25/11 01 h 15 : beau lien `ineed.shopping/p/<nom>` FAIT, prouvé en production sur iPhone (https://ineed.shopping/p/dar-zellige). Panneau « Votre propre adresse » en ligne (recherche, prix TTC, paiement Stripe, achat + mise en ligne Vercel, remboursement si échec). RESTE : clé `VERCEL_TOKEN` (Karim) puis premier achat réel avec son accord.
 - [ ] **A6. Contrôle visuel** — le contrôleur regarde le produit dans un vrai navigateur (capture) avant livraison.
 
 ## Liaison usine (J+2 à J+4)

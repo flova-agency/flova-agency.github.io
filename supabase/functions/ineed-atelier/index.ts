@@ -419,7 +419,7 @@ async function garderModele(c: any, html: string, note: number) {
 async function chercherModele(c: any) {
   const m = motsMetier(c.ordre + " " + (c.cadrage?.titre || ""));
   const l = await sql`select id, mots, cout_usd, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage?.genre || null}) and coalesce(note, 0) >= 85 and chantier is distinct from ${c.id} order by note desc, cree_le desc limit 300`;
-  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score); // 25/11 : on sert le meilleur modèle proche noté ≥ 85
+  const tries = l.map((x: any) => ({ ...x, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score || (b.note || 0) - (a.note || 0)); // 25/11 : le plus ressemblant d'abord (moins de retouches), puis le mieux noté ; tous ≥ 85
   for (const x of tries.slice(0, 3)) { // un modèle dont le code casse une fois anonymisé n'est jamais servi
     const [h] = await sql`select html from ineed_bibliotheque where id=${x.id}`;
     if (!modeleCasse(String(h?.html || ""))) return x;
@@ -692,7 +692,7 @@ Deno.serve(async (req) => {
       const m = motsMetier(c.ordre + " " + c.cadrage.titre);
       try {
         const l = await sql`select id, mots, note from ineed_bibliotheque where (genre is not distinct from ${c.cadrage.genre}) and coalesce(note, 0) >= 85 order by note desc, cree_le desc limit 300`;
-        const cands = l.map((x: any) => ({ id: x.id, note: x.note, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => (b.note || 0) - (a.note || 0) || b.score - a.score).slice(0, 5);
+        const cands = l.map((x: any) => ({ id: x.id, note: x.note, score: proche(m, x.mots) })).filter((x: any) => x.score >= 0.5).sort((a: any, b: any) => b.score - a.score || (b.note || 0) - (a.note || 0)).slice(0, 5);
         for (const x of cands) { const [hh] = await sql`select html from ineed_bibliotheque where id=${x.id}`; const hs = String(hh?.html || ""); (x as any).casse = modeleCasse(hs); (x as any).defauts = controle(hs.split("{{NOM}}").join("Le Nom d’Essai")).slice(0, 3); }
         const choisi = await chercherModele(c).catch((e) => ({ erreur: (e as Error).message }));
         return json({ ok: true, mots: m, candidats: cands, choisi });

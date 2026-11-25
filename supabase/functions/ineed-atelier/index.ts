@@ -502,6 +502,7 @@ async function etape(id: string, suite: () => void) {
     const reste = controle(a.html);
     await sql`update ineed_chantiers set html=${a.html}, tours=${tour}, note=${note} where id=${id}`;
     await journal(id, "controle", `Contrôle n° ${tour} : note ${note}/100 (design ${design || "?"}/100), ${a.n} correction(s) appliquée(s)${reste.length ? `, ${reste.length} défaut(s) restant(s)` : ", aucun défaut automatique"}.`, r.cout);
+    if (c.depuis_modele && !lisible && tour < 3) { await journal(id, "controle", "Relecture illisible : je relis encore une fois avant de jeter l'adaptation."); return suite(); } // 25/11 : une relecture ratée (~0,003 $) ne doit pas jeter une adaptation et coûter une fabrication neuve (~0,09 $)
     if (tour < (c.depuis_modele ? 1 : 3) && (reste.length || (note < 85 && a.n > 0))) return suite();
     if (c.depuis_modele && (note < 90 || reste.length)) { // bus 144 : un site tiré d'un modèle doit lui-même obtenir ≥ 90, sinon fabrication neuve
       await sql`update ineed_chantiers set plan=null, html=null, depuis_modele=null, tours=0, note=null where id=${id}`;

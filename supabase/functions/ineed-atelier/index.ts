@@ -78,6 +78,8 @@ async function limite(ip: string, action: keyof typeof LIM) {
 const OFFRE = { gratuites: 1, ultra_mois: 30, prix_centimes: 9900 };
 const ILLIMITES = new Set(["elbazikarim@gmail.com"]); // le fondateur teste sans payer
 // Empreinte (sha256) du jeton de publication rangé dans le coffre de l'usine (amd_config flova_publication_jeton) — jamais la valeur.
+// Sites d'essai faits par nos sessions avec un compte non robot : jamais publiés comme sites clients (bus 247, 257).
+const SITES_ESSAI = ["dar-zellige"];
 const PUBLICATION_EMPREINTE = "879be0445fff8b3baba810a3821393cbef2d0fed3b24ebaccbc78bf2f2cd7e79";
 const ROBOT = /^robot-[a-z0-9]{4,20}@ineed\.shopping$/; // comptes de test du robot de contrôle
 const SITE = "https://ineed.shopping/atelier/";
@@ -760,7 +762,7 @@ Deno.serve(async (req) => {
       const avecHtml = b.html !== false;
       const l = await sql`select c.slug, c.maj_le, c.etape, c.note, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
         from ineed_chantiers c left join auth.users u on u.id = c.user_id
-        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and (${b.robots === true} or coalesce(u.email, '') !~ '^robot-')
+        where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and (${b.robots === true} or coalesce(u.email, '') !~ '^robot-') and (${b.robots === true} or not (c.slug = any(${SITES_ESSAI})))
         order by c.maj_le limit 200`;
       return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
     }

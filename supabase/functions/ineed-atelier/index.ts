@@ -40,6 +40,7 @@ function schema() {
       statut text, fin_periode timestamptz, resiliation boolean not null default false, verifie_le timestamptz);
     alter table public.ineed_comptes enable row level security;
     alter table public.ineed_chantiers add column if not exists slug text;
+    alter table public.ineed_chantiers add column if not exists publie boolean not null default true;
     create unique index if not exists ineed_chantiers_slug on public.ineed_chantiers(slug) where slug is not null;
     create table if not exists public.ineed_domaines(
       domaine text primary key, chantier uuid not null, user_id uuid, session text, eur numeric, usd numeric,
@@ -184,10 +185,19 @@ async function publierVercel(projet: string, html: string) {
   if (!dep.ok) throw new Error("publication refusée : " + (dep.corps?.error?.message || dep.status));
   return dep.corps.url as string;
 }
-async function mailClient(to: string, sujet: string, html: string) {
-  const k = Deno.env.get("RESEND_API_KEY"); if (!k || !to) return;
-  await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "ineed.shopping <noreply@flovaagency.com>", to: [to], reply_to: "contact@ineed.shopping", subject: sujet, html }) }).catch(() => {});
+async function mailClient(to: string, sujet: string, html: string, repondreA?: string) {
+  const k = Deno.env.get("RESEND_API_KEY"); if (!k || !to) return false;
+  // 26/11 : plus de réponse vers contact@ineed.shopping (boîte non active, les réponses rebondissaient)
+  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: "ineed.shopping <noreply@flovaagency.com>", to: [to], ...(repondreA ? { reply_to: repondreA } : {}), subject: sujet, html }) }).catch(() => null);
+  return !!r && r.ok;
+}
+// J1-03 : les formulaires des sites publiés envoient vraiment le message au créateur du site.
+const SCRIPT_FORMULAIRES = `<script>(function(){var F="https://nhukbglercraslszazan.supabase.co/functions/v1/ineed-atelier",K="sb_publishable_Oroyu2rpfCBnjnPxrf6GBQ_dTgkisoB";document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM"||f.dataset.ineedEnvoye)return;e.preventDefault();var d={};new FormData(f).forEach(function(v,k){if(typeof v==="string")d[k]=v.slice(0,2000)});f.querySelectorAll("input,textarea,select").forEach(function(x,i){if(!x.name&&x.value&&x.type!=="submit")d[(x.placeholder||x.type||"champ")+" "+(i+1)]=String(x.value).slice(0,2000)});fetch(F,{method:"POST",headers:{"Content-Type":"application/json",apikey:K,Authorization:"Bearer "+K},body:JSON.stringify({action:"message_site",nom:"__NOM__",champs:d})}).then(function(r){return r.json()}).then(function(j){f.dataset.ineedEnvoye="1";var m=document.createElement("p");m.setAttribute("role","status");m.style.cssText="margin:12px 0;padding:12px 14px;border-radius:10px;background:#e8f7ee;color:#14532d;font:600 15px/1.4 system-ui";m.textContent=j&&j.ok?"Merci, votre message est bien envoyé.":(j&&j.erreur)||"Envoi impossible pour le moment.";f.appendChild(m);if(j&&j.ok)f.reset()}).catch(function(){})},true)})();</script>`;
+function avecFormulaires(html: string, nom: string) {
+  if (!html) return html;
+  const sc = SCRIPT_FORMULAIRES.replace("__NOM__", nom.replace(/[^a-z0-9-]/g, ""));
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, sc + "</body>") : html + sc;
 }
 // Achat et mise en ligne après paiement : idempotent (un domaine déjà en cours ou en ligne n'est jamais racheté).
 async function livrerDomaine(sessionId: string) {
@@ -594,12 +604,12 @@ Deno.serve(async (req) => {
     const avecHtml = u.searchParams.get("html") !== "0";
     const essai = u.searchParams.get("essai") === "1"; // sites de test robots, pour la vérification du premier https uniquement
     try {
-      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
+      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, c.publie, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
         from ineed_chantiers c left join auth.users u on u.id = c.user_id
         where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis}
           and (${essai} or coalesce(u.email, '') !~ '^robot-') and not (c.slug = any(${SITES_ESSAI}))
         order by c.maj_le limit 200`;
-      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, url: `https://ineed.shopping/p/${x.slug}`, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
+      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html ? avecFormulaires(x.html, x.slug) : x.html, url: `https://ineed.shopping/p/${x.slug}`, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html && x.publie !== false ? "en_ligne" : "retire" })) });
     } catch (e) { return json({ ok: false, erreur: (e as Error).message.slice(0, 200) }, 500); }
   }
   if (req.method !== "POST") return json({ erreur: "methode" }, 405);
@@ -776,18 +786,18 @@ Deno.serve(async (req) => {
       if (!j || h !== PUBLICATION_EMPREINTE) return json({ erreur: "refusé" }, 403);
       const depuis = typeof b.depuis === "string" && !isNaN(Date.parse(b.depuis)) ? b.depuis : "1970-01-01";
       const avecHtml = b.html !== false;
-      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
+      const l = await sql`select c.slug, c.maj_le, c.etape, c.note, c.publie, (c.html is not null) a_html, ${avecHtml ? sql`c.html` : sql`null::text as html`}
         from ineed_chantiers c left join auth.users u on u.id = c.user_id
         where c.slug is not null and c.slug ~ '^[a-z0-9-]+$' and c.maj_le > ${depuis} and (${b.robots === true} or coalesce(u.email, '') !~ '^robot-') and (${b.robots === true} or not (c.slug = any(${SITES_ESSAI})))
         order by c.maj_le limit 200`;
-      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html ? "en_ligne" : "retire" })) });
+      return json({ ok: true, sites: l.map((x: any) => ({ nom: x.slug, html: x.html ? avecFormulaires(x.html, x.slug) : x.html, maj: x.maj_le, note: x.note == null ? null : Number(x.note), etat: x.etape === "livre" && x.a_html && x.publie !== false ? "en_ligne" : "retire" })) });
     }
     if (b.action === "par_slug") { // beau lien : ineed.shopping/p/<nom>
       const sl = String(b.slug || "").toLowerCase();
       if (!/^[a-z0-9-]{1,50}$/.test(sl)) return json({ erreur: "introuvable" }, 404);
-      const [c] = await sql`select id, plan, html, etape from ineed_chantiers where slug=${sl}`;
-      if (!c) return json({ erreur: "introuvable" }, 404);
-      return json({ ok: true, chantier: c });
+      const [c] = await sql`select id, plan, html, etape, publie from ineed_chantiers where slug=${sl}`;
+      if (!c || c.publie === false) return json({ erreur: "introuvable" }, 404); // J1-02 : un site retiré n'est plus visible
+      return json({ ok: true, chantier: { id: c.id, plan: c.plan, etape: c.etape, html: c.html ? avecFormulaires(c.html, sl) : c.html } }); // J1-03
     }
     if (b.action === "domaines") { // adresses proposées pour une création, avec leur prix TTC
       if (!VT()) return json({ ok: false, bientot: true, erreur: "L'achat d'adresse ouvre très bientôt." });
@@ -835,6 +845,33 @@ Deno.serve(async (req) => {
     if (b.action === "suite" && id) {
       lancer(etape(id, relanceur(req, id)));
       return json({ ok: true });
+    }
+    if ((b.action === "retirer" || b.action === "remettre") && id) { // J1-02 : le créateur retire son site du web (ou le remet)
+      const [c] = await sql`select user_id, slug from ineed_chantiers where id=${id}`;
+      if (!c) return json({ erreur: "introuvable" }, 404);
+      if (c.user_id && c.user_id !== qui?.id) return json({ erreur: "Ce projet appartient à un autre compte. Connectez-vous avec le bon compte Google." }, 403);
+      const [r] = await sql`update ineed_chantiers set publie=${b.action === "remettre"}, maj_le=now() where id=${id} returning publie, slug`;
+      return json({ ok: true, publie: r.publie, nom: r.slug });
+    }
+    if (b.action === "message_site") { // J1-03 : message d'un visiteur d'un site publié → créateur du site
+      const nom = String(b.nom || "").toLowerCase();
+      if (!/^[a-z0-9-]{1,50}$/.test(nom)) return json({ erreur: "Site introuvable." }, 404);
+      const champs = b.champs && typeof b.champs === "object" ? b.champs : {};
+      const lignes = Object.entries(champs).filter(([k, v]) => !/^(website|url_?hp|honeypot)$/i.test(k) && String(v).trim()).slice(0, 15).map(([k, v]) => [String(k).slice(0, 60), String(v).slice(0, 2000)]);
+      if (Object.entries(champs).some(([k, v]) => /^(website|honeypot)$/i.test(k) && String(v).trim())) return json({ ok: true }); // robot
+      if (!lignes.length) return json({ erreur: "Le message est vide." }, 400);
+      const [c] = await sql`select c.id, c.plan, c.cadrage, u.email from ineed_chantiers c left join auth.users u on u.id = c.user_id where c.slug=${nom} and coalesce(c.publie, true)`;
+      if (!c) return json({ erreur: "Site introuvable." }, 404);
+      const [{ n }] = await sql`select count(*)::int n from ineed_appels where action=${"msg:" + nom} and le > now() - interval '1 hour'`;
+      if (n >= 20) return json({ erreur: "Trop de messages pour ce site pour le moment. Réessayez plus tard." }, 429);
+      await sql`insert into ineed_appels(ip_h, action) values (${ip}, ${"msg:" + nom})`;
+      if (!c.email) return json({ erreur: "Ce site ne reçoit pas encore de messages." }, 409);
+      const mailVisiteur = lignes.map(([, v]) => v).find((v) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v.trim()));
+      const titre = String(c.plan?.nom || c.cadrage?.titre || nom).slice(0, 80);
+      const esc2 = (t: string) => t.replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" } as any)[m]);
+      const corps = `<p>Nouveau message reçu sur votre site <b>${esc2(titre)}</b> :</p><table style="border-collapse:collapse">${lignes.map(([k, v]) => `<tr><td style="padding:4px 10px 4px 0;color:#666;vertical-align:top">${esc2(k)}</td><td style="padding:4px 0">${esc2(v).replace(/\n/g, "<br>")}</td></tr>`).join("")}</table>${mailVisiteur ? "<p>Répondez simplement à ce courriel pour écrire au visiteur.</p>" : ""}<p style="color:#999;font-size:12px">build by Uxlab.ai</p>`;
+      const parti = await mailClient(c.email, `Nouveau message sur ${titre}`, corps, mailVisiteur?.trim());
+      return parti ? json({ ok: true }) : json({ erreur: "Envoi impossible pour le moment." }, 502);
     }
     if (b.action === "retoucher" && id) {
       const consigne = String(b.consigne || "").trim().slice(0, 1500);

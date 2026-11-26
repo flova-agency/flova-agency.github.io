@@ -885,7 +885,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (b.action === "etat" && id) {
-      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, slug, jsonb_array_length(versions) nv,
+      const [c] = await sql`select id, cree_le, maj_le, ordre, cadrage, plan, etape, journal, cout_usd, note, erreur, slug, publie, jsonb_array_length(versions) nv,
         case when ${!!b.html} then html end html from ineed_chantiers where id=${id}`;
       if (!c) return json({ erreur: "introuvable" }, 404);
       // Une étape muette depuis plus de 70 s (exécution coupée par la plateforme) repart toute seule, 6 fois au plus.

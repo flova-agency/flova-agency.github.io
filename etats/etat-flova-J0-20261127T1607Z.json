@@ -1,0 +1,14 @@
+{
+  "maintenant_utc": "2026-11-27T16:07Z",
+  "session": "pilote-flova",
+  "ordres_non_clos": [
+    {"id": 121, "sujet": "JALON1-ADRESSE-DE-BASE", "age_s": 283073, "statut_accuse": "pilote-flova/lu",
+     "constat": "Remplacé par la publication en tiré (#349/#589) : URL posée sur usine-2 le 27/11 à 0 h 31, minuteur chaque minute, point public HTTP 200. Reste ouvert tant qu'aucun site client n'est en ligne sur <nom>.ineed.shopping (« fait » = prouvé en production)."},
+    {"id": 123, "sujet": "ORDRE-pilote-flova-CACHE-ATELIER-2411", "age_s": 283045, "statut_accuse": "pilote-flova/lu -> clos fait ce jour",
+     "constat": "Bibliothèque en production : chaque site livré est enregistré et réutilisé dès la note 85 (seuil fixé par le QCM de Karim, au lieu de 90). Une adaptation coûte 0,0069 $, contre 0,09 à 0,14 $ pour un site neuf. Un nouvel habillage est obligatoire, donc aucun site n'est vendu deux fois à l'identique."},
+    {"id": 128, "sujet": "ORDRE-pilote-flova-PUBLIER-SUR-INEED-2411", "age_s": 281960, "statut_accuse": "pilote-flova/lu",
+     "constat": "La méthode par clé SSH a été abandonnée au profit de la publication en tiré (#589). Même condition de clôture que #121 : le premier site client doit être en ligne."}
+  ],
+  "ordres_ouverts_non_accuses": [],
+  "build": "build by Uxlab.ai"
+}
